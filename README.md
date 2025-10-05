@@ -16,14 +16,15 @@
 ```
 translation/
 ├── chatgpt_translate.py    # OpenAI GPT-4o-mini 实时翻译
-├── open_batch.py          # OpenAI 批处理翻译（推荐）
-├── test.py                # 本地Ollama模型翻译
-├── r_test.py              # 环境测试脚本
+├── chatgpt_batch.py       # OpenAI 批处理翻译（推荐）
+├── ollama_local_qwen2.py  # 本地Ollama模型翻译
 ├── requirements.txt       # 项目依赖
+├── pyproject.toml         # 项目配置
+├── uv.lock               # 依赖锁定文件
 ├── kaiti.ttf             # 中文字体文件
 ├── kaiti.pkl             # 字体缓存文件
 ├── kaiti.cw127.pkl       # 字体缓存文件
-├── files/                 # 翻译文件存储目录
+├── files/                 # 翻译文件存储目录（批处理模式）
 └── README.md             # 项目说明文档
 ```
 
@@ -52,7 +53,7 @@ pip install -r requirements.txt
 - 自动重试机制
 
 ```python
-# 修改 open_batch.py 中的文件路径
+# 修改 chatgpt_batch.py 中的文件路径
 source_file = "your_book.pdf"  # 或 "your_book.epub"
 batch_job_id = None  # 首次运行设为None，续传时填入任务ID
 Translate(source_file).run(batch_job_id)
@@ -82,24 +83,27 @@ Translate(source_origin_book_name).run()
 - 数据隐私保护
 - 无需网络连接
 
+**注意：** 当前版本默认翻译成越南语，如需翻译成中文，请修改代码中的翻译提示词。
+
 **前置条件：**
 1. 安装并启动Ollama
 2. 下载qwen2:7b模型：`ollama pull qwen2:7b`
 
 ```python
-# 修改 test.py 中的文件路径和模型名称
+# 修改 ollama_local_qwen2.py 中的文件路径和模型名称
 source_origin_book_name = "your_book.pdf"  # 或 "your_book.epub"
 MODEL_NAME = "qwen2:7b"  # 根据你的模型调整
+# 注意：如需翻译成中文，请修改第163行的提示词
 Translate(source_origin_book_name).run()
 ```
 
 ## 成本对比
 
-| 翻译方式 | 成本（833页英文文档） | 特点 |
-|---------|-------------------|------|
-| OpenAI批处理 | ~¥1.4 | 最便宜，适合大批量 |
-| OpenAI实时 | ~¥3 | 实时反馈，适合小文件 |
-| 本地Ollama | ¥0 | 完全免费，需要本地部署 |
+| 翻译方式 | 成本（833页英文文档） | 目标语言 | 特点 |
+|---------|-------------------|---------|------|
+| OpenAI批处理 | ~¥1.4 | 中文 | 最便宜，适合大批量 |
+| OpenAI实时 | ~¥3 | 中文 | 实时反馈，适合小文件 |
+| 本地Ollama | ¥0 | 越南语 | 完全免费，需要本地部署 |
 
 ## 断点续传
 
@@ -114,9 +118,15 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 
 翻译完成后会生成以下文件：
 
+### OpenAI 实时翻译和本地Ollama翻译：
 - `output_translated.txt`: 翻译后的文本文件
 - `output_translated.pdf`: 翻译后的PDF文件（使用楷体字体）
-- `files/` 目录下的相关文件（批处理模式）
+
+### OpenAI 批处理翻译：
+- `files/{原文件名}.txt`: 翻译后的文本文件
+- `files/{原文件名}.pdf`: 翻译后的PDF文件（使用楷体字体）
+- `files/batch_input.jsonl`: 批处理输入文件
+- `files/batch_output.jsonl`: 批处理输出结果文件
 
 ## 注意事项
 
@@ -125,6 +135,7 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 3. **API限制**：OpenAI API有速率限制，大批量翻译建议使用批处理模式
 4. **本地模型**：使用Ollama需要足够的本地计算资源
 5. **文件大小**：建议单次翻译的文档不要过大，避免内存溢出
+6. **翻译语言**：本地Ollama模型默认翻译成越南语，如需中文请修改代码中的提示词
 
 ## 故障排除
 
@@ -170,6 +181,7 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 ## 更新日志
 
 - v1.0.0: 初始版本，支持PDF/EPUB翻译
-- 添加OpenAI批处理模式
-- 添加本地Ollama支持
+- 添加OpenAI批处理模式（chatgpt_batch.py）
+- 添加本地Ollama支持（ollama_local_qwen2.py，默认翻译成越南语）
 - 优化中文PDF生成
+- 重构文件结构，统一命名规范

@@ -1,4 +1,20 @@
-beautifulsoup4
-fpdf2
-ebooklib
-PyPDF2
+# 核心依赖包
+openai>=1.0.0
+requests>=2.28.0
+retry>=0.9.2
+
+# PDF处理
+PyPDF2>=3.0.0
+fpdf2>=2.7.0
+
+# EPUB处理
+ebooklib>=0.18
+
+# HTML解析
+beautifulsoup4>=4.11.0
+
+# 标准库包（无需安装，但列出以供参考）
+# json - 标准库
+# time - 标准库  
+# os - 标准库
+# warnings - 标准库
