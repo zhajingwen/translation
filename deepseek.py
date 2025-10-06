@@ -6,6 +6,7 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 
 # 使用deepseek API https://platform.deepseek.com/usage
+# 每100页大概2毛钱
 client = OpenAI(
     api_key=os.environ.get('DEEPSEEK_API_KEY'),
     base_url="https://api.deepseek.com"
@@ -151,8 +152,7 @@ class Translate:
     """
     翻译类
 
-    GPT-4o-mini：输入费用为每百万 tokens $0.15，输出费用为每百万 tokens $0.60
-    **批处理打五折**
+    DeepSeek：每100页大概2毛钱
     """
     def __init__(self, source_file):
         """
