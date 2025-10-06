@@ -77,14 +77,35 @@ class Translate:
     GPT-4o-mini：输入费用为每百万 tokens $0.15，输出费用为每百万 tokens $0.60
     **批处理打五折**
     """
-    def __init__(self, source_origin_book_name):
+    def __init__(self, source_file):
         """
         source_origin_book_name：需要翻译的书名
         """
-        self.file_path = source_origin_book_name
-        self.output_txt = "output_translated.txt"
-        self.output_pdf = "output_translated.pdf"
+        # self.file_path = source_origin_book_name
+        # self.output_txt = "output_translated.txt"
+        # self.output_pdf = "output_translated.pdf"
         self.text_list = []
+
+
+        directory = 'files/'
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        # 需要翻译的文件
+        self.file_path = directory + source_file
+        # 整本书的翻译请求文件
+        # self.batch_file = f'{directory}batch_input.jsonl'
+        # 翻译结果的json文件
+        # self.batch_file_job_done = f'{directory}batch_output.jsonl'
+        # 翻译结果输出为txt文件
+        self.output_txt = f"{directory}{source_file.split('.')[0]}.txt"
+        # 翻译结果输出为PDF文件
+        self.output_pdf = f"{directory}{source_file.split('.')[0]}.pdf"
+        # 通过环境变量获取api key
+        # OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+        # self.api_key = OPENAI_API_KEY
+
+
+        
 
     def extract_text_from_pdf_translate(self, interupt=None):
         """
