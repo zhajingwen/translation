@@ -278,5 +278,5 @@ class Translate:
 
 if __name__ == '__main__':
     # 需要翻译的书名
-    source_origin_book_name = "The Big Secret for the Small Investor A New Route to Long-Term Investment Success (Joel Greenblatt) (Z-Library).epub"
+    source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
     Translate(source_origin_book_name).run()
