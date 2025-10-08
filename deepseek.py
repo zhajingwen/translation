@@ -23,14 +23,16 @@
 """
 
 import os
+import time
+import re
+from traceback import format_exc
 from openai import OpenAI
 from PyPDF2 import PdfReader
 from fpdf import FPDF
 from ebooklib import epub
 from bs4 import BeautifulSoup
-import threading
+# import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
 
 # 使用deepseek API https://platform.deepseek.com/usage
 # 每100页大概2毛钱
@@ -174,7 +176,6 @@ class Topdf:
         
         return chunks
 
-
 class TranslateConfig:
     """
     翻译配置类
@@ -203,7 +204,7 @@ class Translate:
         # 需要翻译的文件
         self.file_path = directory + source_file
         # 翻译结果输出为txt文件
-        self.output_txt = f"{directory}{source_file.split('.')[0]}.txt"
+        self.output_txt = f"{directory}{source_file.split('.')[0]} translated.txt"
         # 翻译结果输出为PDF文件
         self.output_pdf = f"{directory}{source_file.split('.')[0]}.pdf"
 
@@ -257,7 +258,6 @@ class Translate:
                 content.append(page_text)
         return content
 
-
     def extract_text_from_txt(self):
         """
         解析txt文件
@@ -302,6 +302,7 @@ class Translate:
         向DeepSeek发起翻译请求
         """
         try:
+            print(f'翻译文本: {text_origin}')
             response = client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
@@ -312,6 +313,7 @@ class Translate:
             )
             return response.choices[0].message.content
         except:
+            print(f'翻译异常: {format_exc()}')
             return
 
     def save_text_to_file(self, text):
@@ -346,6 +348,7 @@ class Translate:
         翻译单页文本
         page_data: (page_index, page_content)
         """
+        # print(f'翻译单页文本: {page_data}')
         page_index, page_content = page_data
         
         for attempt in range(self.config.max_retries + 1):
@@ -358,6 +361,7 @@ class Translate:
                 
                 chinese = self.translate(page_content)
                 if chinese:
+                    print(f'翻译结果: {chinese}')
                     print(f'第 {page_index + 1} 页翻译完成')
                     return page_index, chinese
                 else:
@@ -457,12 +461,13 @@ class Translate:
 
 if __name__ == '__main__':
     # 需要翻译的书名
-    source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
+    # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
+    source_origin_book_name = "jeff.txt"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
-        max_workers=5,      # 最大线程数，建议3-10个
+        max_workers=10,      # 最大线程数，建议3-10个
         max_retries=3,      # 最大重试次数
         retry_delay=1       # 重试延迟时间(秒)
     )
