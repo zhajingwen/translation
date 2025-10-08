@@ -1,9 +1,36 @@
+"""
+多线程PDF/EPUB/TXT文档翻译工具
+
+功能特点：
+1. 支持PDF、EPUB、TXT格式文档翻译
+2. 多线程并行翻译，大幅提升翻译速度
+3. 自动重试机制，提高翻译成功率
+4. 进度跟踪和错误处理
+5. 支持自定义线程数和重试参数
+
+使用说明：
+1. 设置环境变量 DEEPSEEK_API_KEY
+2. 修改 source_origin_book_name 为要翻译的文件名
+3. 根据需要调整 TranslateConfig 参数：
+   - max_workers: 线程数，建议3-10个（太多可能导致API限流）
+   - max_retries: 重试次数，默认3次
+   - retry_delay: 重试延迟，默认1秒
+
+注意事项：
+- DeepSeek API有速率限制，建议线程数不要超过10个
+- 网络不稳定时建议增加重试次数和延迟时间
+- 翻译大文件时建议先测试小文件确认配置合适
+"""
+
 import os
 from openai import OpenAI
 from PyPDF2 import PdfReader
 from fpdf import FPDF
 from ebooklib import epub
 from bs4 import BeautifulSoup
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # 使用deepseek API https://platform.deepseek.com/usage
 # 每100页大概2毛钱
@@ -148,16 +175,27 @@ class Topdf:
         return chunks
 
 
+class TranslateConfig:
+    """
+    翻译配置类
+    """
+    def __init__(self, max_workers=5, max_retries=3, retry_delay=1):
+        self.max_workers = max_workers  # 最大线程数
+        self.max_retries = max_retries  # 最大重试次数
+        self.retry_delay = retry_delay  # 重试延迟时间(秒)
+
 class Translate:
     """
     翻译类
 
     DeepSeek：每100页大概2毛钱
     """
-    def __init__(self, source_file):
+    def __init__(self, source_file, config=None):
         """
         source_file：需要翻译的书名
+        config：翻译配置，如果为None则使用默认配置
         """
+        self.config = config or TranslateConfig()
         self.text_list = []
         directory = 'files/'
         if not os.path.exists(directory):
@@ -303,39 +341,131 @@ class Translate:
             print('不支持的文件类型')
             return None
     
+    def translate_page(self, page_data):
+        """
+        翻译单页文本
+        page_data: (page_index, page_content)
+        """
+        page_index, page_content = page_data
+        
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                if attempt > 0:
+                    print(f'重试翻译第 {page_index + 1} 页 (第 {attempt + 1} 次尝试)')
+                    time.sleep(self.config.retry_delay)  # 重试前等待
+                else:
+                    print(f'开始翻译第 {page_index + 1} 页')
+                
+                chinese = self.translate(page_content)
+                if chinese:
+                    print(f'第 {page_index + 1} 页翻译完成')
+                    return page_index, chinese
+                else:
+                    print(f'第 {page_index + 1} 页翻译失败 (第 {attempt + 1} 次尝试)')
+                    
+            except Exception as e:
+                print(f'第 {page_index + 1} 页翻译异常 (第 {attempt + 1} 次尝试): {e}')
+        
+        print(f'第 {page_index + 1} 页翻译最终失败，已重试 {self.config.max_retries} 次')
+        return page_index, None
+
     def translate_text(self, page_list):
         """
-        翻译文本
+        多线程翻译文本
+        page_list: 页面内容列表
         """
-        text = ""
-        num = 0
-        for page in page_list:
-            num += 1
-            chinese = self.translate(page)
-            if chinese:
-                self.text_list.append(chinese)
-                text += f'{chinese}\n'
+        print(f'开始多线程翻译，共 {len(page_list)} 页，使用 {self.config.max_workers} 个线程')
+        
+        # 准备页面数据 (索引, 内容)
+        page_data_list = [(i, page) for i, page in enumerate(page_list)]
+        
+        # 初始化结果列表
+        results = [None] * len(page_list)
+        self.text_list = [None] * len(page_list)
+        
+        # 使用线程池进行翻译
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            # 提交所有翻译任务
+            future_to_page = {
+                executor.submit(self.translate_page, page_data): page_data[0] 
+                for page_data in page_data_list
+            }
+            
+            # 收集结果
+            completed_count = 0
+            failed_pages = []
+            
+            for future in as_completed(future_to_page):
+                page_index = future_to_page[future]
+                try:
+                    page_index, translated_text = future.result()
+                    results[page_index] = translated_text
+                    self.text_list[page_index] = translated_text
+                    completed_count += 1
+                    
+                    if translated_text is None:
+                        failed_pages.append(page_index + 1)
+                    
+                    print(f'进度: {completed_count}/{len(page_list)} 页完成')
+                    
+                except Exception as e:
+                    print(f'第 {page_index + 1} 页处理异常: {e}')
+                    failed_pages.append(page_index + 1)
+                    completed_count += 1
+        
+        # 检查是否有失败的页面
+        if failed_pages:
+            print(f'以下页面翻译失败: {failed_pages}')
+            print(f'成功翻译: {len(page_list) - len(failed_pages)} 页')
+            print(f'失败页面: {len(failed_pages)} 页')
+            
+            # 询问是否继续处理成功的页面
+            user_input = input('是否继续处理成功翻译的页面？(y/n): ').lower().strip()
+            if user_input != 'y':
+                raise Exception(f'有 {len(failed_pages)} 页翻译失败: {failed_pages}')
             else:
-                raise Exception(f'第 {num} 页失败')
-        print(f'全部翻译完成\n\n{text}')
+                print('继续处理成功翻译的页面...')
+        
+        # 按顺序组合翻译结果
+        text = ""
+        for translated_text in self.text_list:
+            if translated_text:
+                text += f'{translated_text}\n'
+        
+        print(f'全部翻译完成，共 {len(page_list)} 页')
         return text
-
 
     def run(self):
         """
         启动入口
         """
+        print(f'开始翻译任务，使用 {self.config.max_workers} 个线程')
+        start_time = time.time()
+        
         page_list = self.extract_text()
         if not page_list:
             print('抽取文本失败')
             return
+        
         translated_text = self.translate_text(page_list)
         if translated_text:
             self.save_text_to_file(translated_text)
+            end_time = time.time()
+            print(f'翻译任务完成，总耗时: {end_time - start_time:.2f} 秒')
         else:
             print('翻译失败')
 
 if __name__ == '__main__':
     # 需要翻译的书名
     source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    Translate(source_origin_book_name).run()
+    
+    # 创建翻译配置
+    # 可以根据API限制和网络情况调整参数
+    config = TranslateConfig(
+        max_workers=5,      # 最大线程数，建议3-10个
+        max_retries=3,      # 最大重试次数
+        retry_delay=1       # 重试延迟时间(秒)
+    )
+    
+    # 启动翻译任务
+    Translate(source_origin_book_name, config).run()
