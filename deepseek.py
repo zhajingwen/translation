@@ -169,14 +169,14 @@ class Translate:
         # 翻译结果输出为PDF文件
         self.output_pdf = f"{directory}{source_file.split('.')[0]}.pdf"
 
-    def extract_text_from_pdf_translate(self, interupt=None):
+    def extract_text_from_pdf(self, interupt=None):
         """
         抽取每一页的PDF提交给chatgpt翻译
         interupt：上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
         """
         reader = PdfReader(self.file_path)
-        text = ""
         num = 0
+        content = []
         for page in reader.pages:
             num += 1
             # 跳过前面已经翻译过的页面，从上一次翻译异常的页面重新开始
@@ -188,18 +188,10 @@ class Translate:
             page_text = page_text.strip()
             if not page_text:
                 continue
-            chinese = self.translate(page_text)
-            if chinese:
-                text += f'{chinese}\n'
-                self.text_list.append(chinese)
-            else:
-                print(f'第 {num} 页失败')
-                break
+            content.append(page_text)
+        return content
 
-        print(f'全部翻译完成\n\n{text}')
-        return text
-
-    def extract_text_from_epub_translate(self, interupt=None):
+    def extract_text_from_epub(self, interupt=None):
         """
         解析epub文件
         抽取每一页的PDF提交给chatgpt翻译
@@ -207,10 +199,9 @@ class Translate:
         """
         # 读取 EPUB 文件
         book = epub.read_epub(self.file_path, options={"ignore_ncx": True})
-        text = ""
         num = 0
         # 提取内容
-        # content = []
+        content = []
         for item in book.get_items():
             num += 1
             # 跳过前面已经翻译过的页面，从上一次翻译异常的页面重新开始
@@ -225,15 +216,48 @@ class Translate:
                 page_text = page_text.strip()
                 if not page_text:
                     continue
-                chinese = self.translate(page_text)
-                if chinese:
-                    text += f'{chinese}\n'
-                    self.text_list.append(chinese)
+                content.append(page_text)
+        return content
+
+
+    def extract_text_from_txt(self):
+        """
+        解析txt文件
+        抽取txt文件提交给chatgpt翻译
+        每一段文本呢限制在2000字以内
+        """
+        with open(self.file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        if len(content) > 2000:
+            # 切割点
+            split_points = []
+            page_list = []
+            # 按行进行切割
+            rows = content.split('\n')
+            for index, row in enumerate(rows):
+                if index == 0:
+                    continue
+                # 第一次切割
+                if not split_points:
+                    page_content = rows[:index+1]
+                    page_content = '\n'.join(page_content)
+                    if len(page_content) > 2000:
+                        split_points.append(index)
+                        # 第一页加入列表
+                        page_list.append('\n'.join(rows[:index]))
+                # 非第一次切割
                 else:
-                    print(f'第 {num} 页失败')
-                    break
-        print(f'全部翻译完成\n\n{text}')
-        return text
+                    start_point = split_points[-1]
+                    page_content = rows[start_point:index+1]
+                    page_content = '\n'.join(page_content)
+                    if len(page_content) > 2000:
+                        split_points.append(index)
+                        page_list.append('\n'.join(rows[start_point:index]))
+            the_last_page = '\n'.join(rows[split_points[-1]:])
+            page_list.append(the_last_page)
+            return page_list
+        else:
+            return [content]
 
     def translate(self, text_origin):
         """
@@ -252,29 +276,64 @@ class Translate:
         except:
             return
 
-    def save_to_pdf(self, text):
+    def save_text_to_file(self, text):
         """
         保存翻译后的内容为 txt, PDF
         """
+        print(f'保存翻译后的内容为 txt, PDF')
         # 保存为txt
         with open(self.output_txt, 'w')as f:
             f.write(text)
+        print(f'保存翻译后的内容为 txt 完成')
         # 保存为pdf
         Topdf(self.output_pdf, self.output_txt).to_pdf(self.text_list)
+        print(f'保存翻译后的内容为 PDF 完成')
+
+    def extract_text(self):
+        """
+        抽取文本
+        """
+        if '.pdf' in self.file_path:
+            return self.extract_text_from_pdf()
+        elif '.epub' in self.file_path:
+            return self.extract_text_from_epub()
+        elif '.txt' in self.file_path:
+            return self.extract_text_from_txt()
+        else:
+            print('不支持的文件类型')
+            return None
+    
+    def translate_text(self, page_list):
+        """
+        翻译文本
+        """
+        text = ""
+        num = 0
+        for page in page_list:
+            num += 1
+            chinese = self.translate(page)
+            if chinese:
+                self.text_list.append(chinese)
+                text += f'{chinese}\n'
+            else:
+                raise Exception(f'第 {num} 页失败')
+        print(f'全部翻译完成\n\n{text}')
+        return text
+
 
     def run(self):
         """
         启动入口
         """
-        if 'pdf' in self.file_path:
-            text = self.extract_text_from_pdf_translate()
-        elif 'epub' in self.file_path:
-            text = self.extract_text_from_epub_translate()
+        page_list = self.extract_text()
+        if not page_list:
+            print('抽取文本失败')
+            return
+        translated_text = self.translate_text(page_list)
+        if translated_text:
+            self.save_text_to_file(translated_text)
         else:
-            print('不支持的文件类型')
-            text = None
-        if text:
-            self.save_to_pdf(text)
+            print('翻译失败')
 
 if __name__ == '__main__':
     # 需要翻译的书名
