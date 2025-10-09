@@ -15,8 +15,9 @@
 
 ```
 translation/
-├── chatgpt_translate.py    # OpenAI GPT-4o-mini 实时翻译
-├── chatgpt_batch.py       # OpenAI 批处理翻译（推荐）
+├── deepseek.py            # DeepSeek 多线程翻译（推荐）
+├── chatgpt_translate.py   # OpenAI GPT-4o-mini 实时翻译
+├── chatgpt_batch.py       # OpenAI 批处理翻译
 ├── ollama_local_qwen2.py  # 本地Ollama模型翻译
 ├── requirements.txt       # 项目依赖
 ├── pyproject.toml         # 项目配置
@@ -45,7 +46,32 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 1. OpenAI 批处理翻译（推荐）
+### 1. DeepSeek 多线程翻译（推荐）
+
+**优势：**
+- 多线程并行翻译，大幅提升翻译速度
+- 成本低廉（每100页约2毛钱）
+- 支持PDF、EPUB、TXT格式
+- 自动重试机制，提高翻译成功率
+
+**启动方式：**
+```bash
+python deepseek.py
+```
+
+**环境变量设置：**
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+```
+
+**配置说明：**
+- 修改 `deepseek.py` 中的 `source_origin_book_name` 为要翻译的文件名
+- 根据需要调整 `TranslateConfig` 参数：
+  - `max_workers`: 线程数，建议3-10个（太多可能导致API限流）
+  - `max_retries`: 重试次数，默认3次
+  - `retry_delay`: 重试延迟，默认1秒
+
+### 2. OpenAI 批处理翻译
 
 **优势：**
 - 成本最低（比实时翻译便宜50%）
@@ -101,6 +127,7 @@ Translate(source_origin_book_name).run()
 
 | 翻译方式 | 成本（833页英文文档） | 目标语言 | 特点 |
 |---------|-------------------|---------|------|
+| DeepSeek多线程 | ~¥1.6 | 中文 | 多线程加速，性价比高 |
 | OpenAI批处理 | ~¥1.4 | 中文 | 最便宜，适合大批量 |
 | OpenAI实时 | ~¥3 | 中文 | 实时反馈，适合小文件 |
 | 本地Ollama | ¥0 | 越南语 | 完全免费，需要本地部署 |

@@ -462,7 +462,7 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "jeff.txt"
+    source_origin_book_name = "Making Sense of Chaos A Better Economics for a Better World (J. Doyne Farmer) (Z-Library).epub"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
