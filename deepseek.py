@@ -462,7 +462,7 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "001 - Pavel Durov： Telegram, Freedom, Censorship, Money, Power & Human Nature ｜ Lex Fridman Podcast #482.txt"
+    source_origin_book_name = "Pavel Durov.txt"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
