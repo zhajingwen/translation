@@ -462,14 +462,14 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "Making Sense of Chaos A Better Economics for a Better World (J. Doyne Farmer) (Z-Library).epub"
+    source_origin_book_name = "001 - Pavel Durov： Telegram, Freedom, Censorship, Money, Power & Human Nature ｜ Lex Fridman Podcast #482.txt"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
-        max_workers=10,      # 最大线程数，建议3-10个
-        max_retries=3,      # 最大重试次数
-        retry_delay=1       # 重试延迟时间(秒)
+        max_workers=5,      # 最大线程数，建议3-10个
+        max_retries=10,      # 最大重试次数
+        retry_delay=10       # 重试延迟时间(秒)
     )
     
     # 启动翻译任务
