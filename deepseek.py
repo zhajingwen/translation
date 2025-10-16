@@ -46,16 +46,20 @@ class PDF(FPDF):
         super().__init__()
         # 添加中文字体
         try:
-            self.add_font('kaiti', '', './kaiti.ttf', uni=True)
+            self.add_font('kaiti', '', './kaiti.ttf')
         except Exception as e:
             print(f"字体加载失败: {e}")
             # 如果字体加载失败，使用默认字体
-            self.add_font('kaiti', '', 'DejaVu', uni=True)
+            try:
+                self.add_font('kaiti', '', 'DejaVu')
+            except:
+                # 如果DejaVu也失败，使用系统默认字体
+                pass
 
     def footer(self):
         self.set_y(-15)
         self.set_font('kaiti', '', 8)  # 设置中文字体
-        self.cell(0, 10, f'第 {self.page_no()} 页', 0, 0, 'C')  # 页脚
+        self.cell(0, 10, f'第 {self.page_no()} 页', 0, new_x='LMARGIN', new_y='NEXT', align='C')  # 页脚
 
 class Topdf:
     def __init__(self, pdf_path, txt_file_path):
@@ -67,19 +71,22 @@ class Topdf:
     def to_pdf_from_text_file(self):
         # 创建PDF对象
         pdf = PDF()
-        pdf.set_left_margin(10)
-        pdf.set_right_margin(10)
+        pdf.set_left_margin(15)
+        pdf.set_right_margin(15)
         pdf.add_page()
 
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font('kaiti', '', 12)
+        pdf.set_auto_page_break(auto=True, margin=20)
+        pdf.set_font('kaiti', '', 11)
 
         # 读取TXT文件并优化文本内容
         with open(self.txt_file, 'r', encoding='utf-8') as file:
             text = file.read()
 
+        # 清理和优化文本
+        clean_text = self.clean_text_for_pdf(text)
+        
         # 将优化后的文本添加到PDF
-        pdf.multi_cell(0, 10, text)
+        pdf.multi_cell(0, 8, clean_text)
 
         # 保存PDF文件
         pdf.output(self.pdf_file)
@@ -91,20 +98,25 @@ class Topdf:
         """
         # 创建PDF对象
         pdf = PDF()
-        # 增加页面边距，确保有足够的空间
-        pdf.set_left_margin(20)
-        pdf.set_right_margin(20)
+        # 设置合适的页面边距，确保有足够的空间
+        pdf.set_left_margin(15)
+        pdf.set_right_margin(15)
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=20)
-        pdf.set_font('kaiti', '', 12)
+        pdf.set_font('kaiti', '', 11)
 
         for page in pages_list:
+            if not page or not page.strip():  # 跳过空页面
+                continue
+                
             try:
                 # 清理文本，移除可能导致问题的字符
                 clean_text = self.clean_text_for_pdf(page)
                 if clean_text.strip():  # 只处理非空文本
-                    # 将优化后的文本添加到PDF
-                    pdf.multi_cell(0, 10, clean_text)
+                    # 将优化后的文本添加到PDF，使用更小的行高
+                    pdf.multi_cell(0, 8, clean_text)
+                    # 添加段落间距
+                    pdf.ln(2)
             except Exception as e:
                 print(f"处理页面时出错: {e}")
                 # 如果单页出错，尝试用更安全的方式处理
@@ -113,7 +125,8 @@ class Topdf:
                     text_chunks = self.split_text_safely(page)
                     for chunk in text_chunks:
                         if chunk.strip():
-                            pdf.multi_cell(0, 10, chunk)
+                            pdf.multi_cell(0, 8, chunk)
+                            pdf.ln(1)
                 except Exception as e2:
                     print(f"分段处理也失败: {e2}")
                     continue
@@ -129,18 +142,28 @@ class Topdf:
         
         # 移除或替换可能导致问题的字符
         import re
-        # 移除控制字符
+        # 移除控制字符和特殊字符
         text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+        # 移除或替换可能导致问题的Unicode字符
+        text = re.sub(r'[\u200b-\u200d\u2060\ufeff]', '', text)  # 零宽字符
+        
         # 限制文本长度，避免过长的行
         lines = text.split('\n')
         cleaned_lines = []
         for line in lines:
-            if len(line) > 200:  # 限制单行长度
+            # 移除行首行尾空白
+            line = line.strip()
+            if not line:
+                cleaned_lines.append('')
+                continue
+                
+            if len(line) > 150:  # 限制单行长度，减少到150字符
                 # 在合适的位置断行
-                while len(line) > 200:
-                    break_pos = line.rfind(' ', 0, 200)
+                while len(line) > 150:
+                    break_pos = line.rfind(' ', 0, 150)
                     if break_pos == -1:
-                        break_pos = 200
+                        # 如果没有空格，强制在150字符处断行
+                        break_pos = 150
                     cleaned_lines.append(line[:break_pos])
                     line = line[break_pos:].lstrip()
                 if line:
@@ -462,7 +485,7 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "Pavel Durov.txt"
+    source_origin_book_name = "007 - Jack Weatherford： Genghis Khan and the Mongol Empire ｜ Lex Fridman Podcast #476.txt"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
