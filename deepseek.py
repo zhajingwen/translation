@@ -229,7 +229,7 @@ class Translate:
         # 翻译结果输出为txt文件
         self.output_txt = f"{directory}{source_file.split('.')[0]} translated.txt"
         # 翻译结果输出为PDF文件
-        self.output_pdf = f"{directory}{source_file.split('.')[0]}.pdf"
+        self.output_pdf = f"{directory}{source_file.split('.')[0]} translated.pdf"
 
     def extract_text_from_pdf(self, interupt=None):
         """
@@ -485,7 +485,7 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "007 - Jack Weatherford： Genghis Khan and the Mongol Empire ｜ Lex Fridman Podcast #476.txt"
+    source_origin_book_name = "20251014_zenith.pdf"
     
     # 创建翻译配置
     # 可以根据API限制和网络情况调整参数
