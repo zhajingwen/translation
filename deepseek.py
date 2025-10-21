@@ -485,7 +485,9 @@ class Translate:
 if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
-    source_origin_book_name = "files/013 - James Holland： World War II, Hitler, Churchill, Stalin & Biggest Battles ｜ Lex Fridman Podcast #470.txt"
+    # source_origin_book_name = "files/017 - Jeffrey Wasserstrom： China, Xi Jinping, Trade War, Taiwan, Hong Kong, Mao ｜ Lex Fridman Podcast #466.txt"
+    source_origin_book_name = "files/Real-Time Risk What Investors Should Know About FinTech, High-Frequency Trading, and Flash Crashes (Irene Aldridge, Steven Krawciw) (Z-Library).epub"
+    
     if 'files/' in source_origin_book_name:
         source_origin_book_name = source_origin_book_name.split('files/')[1]
     # 创建翻译配置
