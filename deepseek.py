@@ -253,6 +253,46 @@ class Translate:
             content.append(page_text)
         return content
 
+    def is_blank_page(self, text):
+        """
+        判断页面是否为空白页
+        更严格的空白页判断逻辑
+        """
+        if text is None:
+            return True
+        
+        # 去除首尾空白
+        text_clean = text.strip()
+        
+        # 1. 空字符串
+        if len(text_clean) == 0:
+            return True
+        
+        # 2. 检查是否只包含空白字符和控制字符
+        # 统计可打印字符（非空白、非控制字符）的数量
+        printable_chars = sum(1 for c in text_clean if c.isprintable() and not c.isspace())
+        total_chars = len(text_clean)
+        
+        # 如果可打印字符数量很少，认为是空白页
+        if total_chars > 0 and printable_chars / total_chars < 0.1:
+            # 特别短的文本如果可打印字符少于2个，认为空白
+            if printable_chars < 2:
+                return True
+        
+        # 3. 检查是否只包含常见的HTML空白实体和特殊字符
+        blank_chars_only = all(c in [' ', '\n', '\t', '\r', '\xa0', '\u2000', '\u2001', 
+                                      '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', 
+                                      '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f'] 
+                               for c in text_clean)
+        if blank_chars_only:
+            return True
+        
+        # 4. 如果是纯标点符号或特殊符号（没有实际内容）
+        if len(text_clean) < 20 and all(not c.isalnum() for c in text_clean):
+            return True
+        
+        return False
+    
     def extract_text_from_epub(self, interupt=None):
         """
         解析epub文件
@@ -296,6 +336,7 @@ class Translate:
         num = 0
         # 提取内容
         content = []
+        blank_count = 0  # 统计空白页数量
         for item in html_items:
             num += 1
             # 跳过前面已经翻译过的页面，从上一次翻译异常的页面重新开始
@@ -316,18 +357,14 @@ class Translate:
                 # 提取文本，保留换行
                 page_text = soup.get_text(separator='\n', strip=True)
                 
-                # 改进：保留内容，即使看起来是空的（可能包含空格或特殊字符）
-                if page_text is None:
-                    print(f'第 {num} 页内容为 None，跳过')
-                    continue
-                    
-                # 只过滤完全为空且长度小于5的文本（可能是纯标记页面）
-                if len(page_text.strip()) < 5:
-                    print(f'第 {num} 页内容过短或为空: {repr(page_text[:50])}')
-                    # 但仍添加到列表中，以防是重要内容
-                    content.append(page_text if page_text else "[空页面]")
-                else:
-                    content.append(page_text)
+                # 检查和过滤空白页
+                if self.is_blank_page(page_text):
+                    blank_count += 1
+                    print(f'第 {num} 页为空白页，已跳过')
+                    continue  # 跳过空白页，不添加到内容列表
+                
+                # 添加有效内容
+                content.append(page_text)
                     
             except Exception as e:
                 print(f'处理第 {num} 页时出错: {e}')
@@ -336,6 +373,8 @@ class Translate:
                 content.append(f"[处理出错: {e}]")
         
         print(f'共提取 {len(content)} 页有效内容')
+        if blank_count > 0:
+            print(f'共过滤 {blank_count} 个空白页')
         return content
 
     def extract_text_from_txt(self):
@@ -543,7 +582,7 @@ if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
     # source_origin_book_name = "files/017 - Jeffrey Wasserstrom： China, Xi Jinping, Trade War, Taiwan, Hong Kong, Mao ｜ Lex Fridman Podcast #466.txt"
-    source_origin_book_name = "Becoming a Supple Leopard The Ultimate Guide to Resolving Pain, Preventing Injury, and Optimizing Athletic Performance (Glen Cordoza, Kelly Starrett) (Z-Library).epub"
+    source_origin_book_name = ""
     
     if 'files/' in source_origin_book_name:
         source_origin_book_name = source_origin_book_name.split('files/')[1]
