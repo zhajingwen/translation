@@ -582,7 +582,7 @@ if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
     # source_origin_book_name = "files/017 - Jeffrey Wasserstrom： China, Xi Jinping, Trade War, Taiwan, Hong Kong, Mao ｜ Lex Fridman Podcast #466.txt"
-    source_origin_book_name = ""
+    source_origin_book_name = "files/Becoming a Supple Leopard The Ultimate Guide to Resolving Pain, Preventing Injury, and Optimizing Athletic Performance (Kelly Starrett) (Z-Library).pdf"
     
     if 'files/' in source_origin_book_name:
         source_origin_book_name = source_origin_book_name.split('files/')[1]
