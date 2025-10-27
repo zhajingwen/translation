@@ -261,24 +261,81 @@ class Translate:
         """
         # 读取 EPUB 文件
         book = epub.read_epub(self.file_path, options={"ignore_ncx": True})
+        
+        # 先收集所有需要处理的 HTML/XHTML 内容
+        html_items = []
+        skipped_items = []
+        
+        for item in book.get_items():
+            # 扩展支持的 MIME 类型
+            supported_types = [
+                'application/xhtml+xml',
+                'application/xhtml', 
+                'text/html',
+                'text/xhtml',
+                'application/html+xml',
+                'text/xml',  # 有些 epub 使用 text/xml
+            ]
+            
+            if item.media_type in supported_types:
+                try:
+                    html_items.append(item)
+                except Exception as e:
+                    print(f'处理 HTML 项时出错: {e}')
+                    skipped_items.append((item.get_name(), item.media_type))
+            else:
+                skipped_items.append((item.get_name(), item.media_type))
+        
+        # 打印跳过的项目信息
+        if skipped_items:
+            print(f'跳过了 {len(skipped_items)} 个非正文项目 (图片、样式表、字体等)')
+            if len(skipped_items) <= 10:  # 如果跳过项目较少，显示详情
+                for name, mime_type in skipped_items:
+                    print(f'  - {name} ({mime_type})')
+        
         num = 0
         # 提取内容
         content = []
-        for item in book.get_items():
+        for item in html_items:
             num += 1
             # 跳过前面已经翻译过的页面，从上一次翻译异常的页面重新开始
             if interupt:
                 if num < interupt:
                     continue
-            print(f'开始处理第 {num} 页')
-            # 检查 item 是否是正文类型（基于 MIME 类型）
-            if item.media_type == 'application/xhtml+xml':  # 处理 xhtml 内容
+            
+            print(f'开始处理第 {num} 页: {item.get_name()}')
+            
+            try:
+                # 解析 HTML 内容
                 soup = BeautifulSoup(item.get_content(), 'html.parser')
-                page_text = soup.get_text()
-                page_text = page_text.strip()
-                if not page_text:
+                
+                # 移除 script 和 style 标签
+                for script in soup(["script", "style"]):
+                    script.decompose()
+                
+                # 提取文本，保留换行
+                page_text = soup.get_text(separator='\n', strip=True)
+                
+                # 改进：保留内容，即使看起来是空的（可能包含空格或特殊字符）
+                if page_text is None:
+                    print(f'第 {num} 页内容为 None，跳过')
                     continue
-                content.append(page_text)
+                    
+                # 只过滤完全为空且长度小于5的文本（可能是纯标记页面）
+                if len(page_text.strip()) < 5:
+                    print(f'第 {num} 页内容过短或为空: {repr(page_text[:50])}')
+                    # 但仍添加到列表中，以防是重要内容
+                    content.append(page_text if page_text else "[空页面]")
+                else:
+                    content.append(page_text)
+                    
+            except Exception as e:
+                print(f'处理第 {num} 页时出错: {e}')
+                print(f'  页面名称: {item.get_name()}')
+                # 出错时添加占位符，而不是完全跳过
+                content.append(f"[处理出错: {e}]")
+        
+        print(f'共提取 {len(content)} 页有效内容')
         return content
 
     def extract_text_from_txt(self):
@@ -486,7 +543,7 @@ if __name__ == '__main__':
     # 需要翻译的书名
     # source_origin_book_name = "Modernization, Cultural Change, and Democracy The Human Development Sequence.pdf"
     # source_origin_book_name = "files/017 - Jeffrey Wasserstrom： China, Xi Jinping, Trade War, Taiwan, Hong Kong, Mao ｜ Lex Fridman Podcast #466.txt"
-    source_origin_book_name = "files/Real-Time Risk What Investors Should Know About FinTech, High-Frequency Trading, and Flash Crashes (Irene Aldridge, Steven Krawciw) (Z-Library).epub"
+    source_origin_book_name = "Becoming a Supple Leopard The Ultimate Guide to Resolving Pain, Preventing Injury, and Optimizing Athletic Performance (Glen Cordoza, Kelly Starrett) (Z-Library).epub"
     
     if 'files/' in source_origin_book_name:
         source_origin_book_name = source_origin_book_name.split('files/')[1]
