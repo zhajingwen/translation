@@ -416,7 +416,8 @@ class Translate:
                     {"role": "system", "content": "You are a translation assistant."},
                     {"role": "user", "content": f"将该文本翻译成中文: {text_origin}"}
                 ],
-                stream=False
+                stream=False,
+                timeout=30
             )
             return response.choices[0].message.content
         except:
