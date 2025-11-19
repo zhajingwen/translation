@@ -363,16 +363,16 @@ class Translate:
         print(f'共提取 {len(content)} 页有效内容')
         if blank_count > 0:
             print(f'共过滤 {blank_count} 个空白页')
-        return content
+            
+        # 重构分页标准
+        content = '\n'.join(content)
+        page_list = self.split_full_content_to_pages(content)
+        return page_list
 
-    def extract_text_from_txt(self):
+    def split_full_content_to_pages(self, content):
         """
-        解析txt文件
-        抽取txt文件提交给chatgpt翻译
-        每一段文本呢限制在2000字以内
+        将全文内容切割成每2000字一页
         """
-        with open(self.file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
         if len(content) > 2000:
             # 切割点
             split_points = []
@@ -404,12 +404,29 @@ class Translate:
         else:
             return [content]
 
+    def extract_text_from_txt(self):
+        """
+        解析txt文件
+        抽取txt文件提交给chatgpt翻译
+        每一段文本呢限制在2000字以内
+        """
+        with open(self.file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        page_list = self.split_full_content_to_pages(content)
+        return page_list
+
     def translate(self, text_origin):
         """
         向DeepSeek发起翻译请求
         """
         try:
-            print(f'翻译文本: {text_origin}')
+            # 如果文本长度大于10，则截取前10个字符
+            if len(text_origin) > 100:
+                text_origin_head = text_origin[:100]
+            else:
+                text_origin_head = text_origin
+            # 打印翻译文本的头部
+            print(f'翻译文本: {text_origin_head} ...')
             response = client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
@@ -453,7 +470,6 @@ class Translate:
         翻译单页文本
         page_data: (page_index, page_content)
         """
-        # print(f'翻译单页文本: {page_data}')
         page_index, page_content = page_data
         
         for attempt in range(self.config.max_retries + 1):
