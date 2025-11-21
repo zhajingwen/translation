@@ -21,7 +21,7 @@ def safe_delete(file_path: Path):
 
 def batch_translate():
     """
-    
+    批量翻译文件，支持 txt、pdf、epub 三种文件类型
     """
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
@@ -31,47 +31,57 @@ def batch_translate():
     )
     
     current_dir = Path("./files")
-    txt_files = sorted(current_dir.glob("*.txt"))
+    # 支持的文件扩展名
+    supported_extensions = ['.txt', '.pdf', '.epub']
     
-    if not txt_files:
-        print("等待翻译的txt文件，退出。")
+    # 收集所有支持的文件
+    all_files = []
+    for ext in supported_extensions:
+        all_files.extend(sorted(current_dir.glob(f"*{ext}")))
+    
+    if not all_files:
+        print("等待翻译的文件（txt/pdf/epub），退出。")
         return
     
     processed = 0
-    for txt_path in txt_files:
+    for file_path in all_files:
+        file_ext = file_path.suffix.lower()
+        file_name = file_path.name
+        
         # 如果文件本身是以 translated.txt 结尾，则跳过
-        if txt_path.name.endswith("translated.txt"):
-            logger.info(f"跳过已翻译文件: {txt_path.name}")
+        if file_name.endswith("translated.txt"):
+            logger.info(f"跳过已翻译文件: {file_name}")
             continue
         
-        # 如果原文件是 file.txt，检查 file translated.txt（中间有空格）
-        txt_translated_path = txt_path.parent / f"{txt_path.stem} translated.txt"
-
+        # 检查翻译结果文件是否存在
+        # 翻译后的文件名格式：原文件名（不含扩展名） + " translated.txt"
+        translated_path = file_path.parent / f"{file_path.stem} translated.txt"
+        
         # 如果有翻译结果了，那么就跳过
-        if txt_translated_path.exists():
-            print(f"跳过: {txt_path.name} 已存在")
-            # 删除原始txt文件
-            safe_delete(txt_path)
-            logger.info(f'删除成功：{txt_path.name}')
+        if translated_path.exists():
+            print(f"跳过: {file_name} 已存在翻译结果")
+            # 删除原始文件
+            safe_delete(file_path)
+            logger.info(f'删除成功：{file_name}')
             continue
         
         try:
             # 启动翻译任务
-            logger.info(f'开始翻译：{txt_path.name}')
-            result = Translate(txt_path.name, config).run()
+            logger.info(f'开始翻译：{file_name} (类型: {file_ext})')
+            result = Translate(file_name, config).run()
             if not result:
-                print(f"翻译失败: {txt_path.name}")
+                print(f"翻译失败: {file_name}")
                 continue
             processed += 1
-            logger.info(f'翻译成功：{txt_path.name}')
-            # 删除原始txt文件
-            safe_delete(txt_path)
-            logger.info(f'删除成功：{txt_path.name}')
-            logger.info(f'翻译成功结束：{txt_path.name}')
+            logger.info(f'翻译成功：{file_name}')
+            # 删除原始文件
+            safe_delete(file_path)
+            logger.info(f'删除成功：{file_name}')
+            logger.info(f'翻译成功结束：{file_name}')
 
         except Exception as e:
-            print(f"错误翻译 {txt_path.name}: {e}", file=sys.stderr)
-            logger.error(f"处理失败: {txt_path.name} - {e}")
+            print(f"错误翻译 {file_name}: {e}", file=sys.stderr)
+            logger.error(f"处理失败: {file_name} - {e}")
 
 
 if __name__ == '__main__':

@@ -36,6 +36,8 @@ export OPENAI_API_KEY="your-openai-api-key"
 **第三步：准备文件**
 将待翻译的文件（PDF/EPUB/TXT）放入 `files/` 目录
 
+**提示：** 批量翻译模式会自动处理目录下所有支持格式的文件，单文件翻译需要手动指定文件名。
+
 **第四步：开始翻译**
 ```bash
 # 单文件翻译（生成PDF+TXT）
@@ -44,7 +46,7 @@ python deepseek.py
 # 或单文件翻译（仅生成TXT，更快）
 python deepseek_nopdf.py
 
-# 或批量翻译（自动处理files目录下所有txt文件）
+# 或批量翻译（自动处理files目录下所有txt/pdf/epub文件）
 python batch_deepseek.py
 ```
 
@@ -76,7 +78,7 @@ python batch_deepseek.py
 - 💰 成本优化：批处理模式可节省50%费用，DeepSeek最经济（每100页约2毛钱）
 - 🔄 自动重试机制：提高翻译成功率，支持自定义重试次数和延迟
 - ⚡ 多线程并行：DeepSeek版本支持多线程并发翻译，大幅提升速度
-- 📦 批量处理：支持自动批量翻译files目录下的所有txt文件，翻译完成后自动清理
+- 📦 批量处理：支持自动批量翻译files目录下的所有txt/pdf/epub文件，翻译完成后自动清理
 - 📄 多格式输出：同时生成TXT和PDF格式的翻译结果（deepseek_nopdf.py仅生成TXT）
 - 🎨 中文排版：使用楷体字体，支持中文PDF生成
 
@@ -176,8 +178,8 @@ uv sync
    python deepseek_nopdf.py
    ```
 
-**批量翻译（自动处理files目录下所有txt文件）：**
-1. 将需要翻译的txt文件放入 `files/` 目录
+**批量翻译（自动处理files目录下所有txt/pdf/epub文件）：**
+1. 将需要翻译的文件（txt/pdf/epub）放入 `files/` 目录
 2. 打开 `batch_deepseek.py` 文件，调整配置（第27-31行）
 3. 运行：
    ```bash
@@ -205,18 +207,20 @@ set DEEPSEEK_API_KEY=your-api-key
 | `retry_delay` | 重试延迟(秒) | 5-10 | API限流时建议增加到10秒以上 |
 
 **批量翻译功能说明：**
-- ✅ 自动扫描 `files/` 目录下的所有 `.txt` 文件
+- ✅ 自动扫描 `files/` 目录下的所有 `.txt`、`.pdf`、`.epub` 文件
 - ✅ 跳过已翻译的文件（文件名以 `translated.txt` 结尾或已存在对应的翻译文件）
-- ✅ 翻译完成后自动删除原始txt文件（请确保已备份）
+- ✅ 翻译完成后自动删除原始文件（请确保已备份）
 - ✅ 支持日志记录，方便追踪翻译进度
 - ✅ 失败时继续处理其他文件，不会中断整个批量任务
+- ✅ 支持多种文件格式混合批量处理
 
 **注意事项：**
 - ⚠️ DeepSeek API有速率限制，建议线程数不超过10个
 - ⚠️ 网络不稳定时建议增加重试次数和延迟时间
 - ⚠️ 翻译大文件时建议先测试小文件确认配置合适
-- ⚠️ 批量翻译会自动删除原始文件，请确保已备份重要文件
+- ⚠️ 批量翻译会自动删除原始文件（txt/pdf/epub），请确保已备份重要文件
 - ⚠️ 如果翻译过程中有页面失败，程序会询问是否继续处理成功的页面
+- ⚠️ 批量翻译支持txt、pdf、epub三种格式混合处理
 
 ### 2. OpenAI 批处理翻译
 
@@ -367,7 +371,7 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 
 ### DeepSeek批量翻译（batch_deepseek.py）：
 - `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
-- 翻译完成后自动删除原始txt文件
+- 翻译完成后自动删除原始文件（txt/pdf/epub）
 
 ### OpenAI实时翻译和本地Ollama翻译：
 - `files/{原文件名} translated.txt`: 翻译后的文本文件
@@ -448,7 +452,7 @@ DeepSeek版本已内置空白页过滤功能，会自动跳过：
 ### Q5: 批量翻译时如何跳过某些文件？
 
 **A:**
-- 将文件重命名，不以`.txt`结尾
+- 将文件重命名，不以`.txt`、`.pdf`、`.epub`结尾
 - 或创建对应的`{文件名} translated.txt`文件
 - 批量脚本会自动跳过已翻译的文件
 
@@ -624,11 +628,12 @@ ollama pull qwen2:7b
 
 ### v2.1.0
 - ✨ 新增DeepSeek批量翻译脚本（batch_deepseek.py）
-- 📦 支持自动批量处理files目录下的所有txt文件
+- 📦 支持自动批量处理files目录下的所有txt/pdf/epub文件
 - 🗑️ 批量翻译完成后自动删除原始文件
 - 📝 新增deepseek_nopdf.py版本（仅生成TXT，不生成PDF）
 - 📊 增强日志记录功能
 - 🔄 改进批量翻译的错误处理，失败时继续处理其他文件
+- 🎯 批量翻译支持多种文件格式混合处理
 
 ### v2.0.0
 - ✨ 新增DeepSeek多线程翻译支持
