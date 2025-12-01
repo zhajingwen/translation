@@ -445,11 +445,11 @@ class Translate:
         """
         保存翻译后的内容为 txt
         """
-        print(f'保存翻译后的内容为 txt')
+        print(f'保存翻译后的内容为txt')
         # 保存为txt
         with open(self.output_txt, 'w', encoding='utf-8')as f:
             f.write(text)
-        print(f'保存翻译后的内容为 txt 完成')
+        print(f'保存翻译后的内容为txt 完成')
 
     def extract_text(self):
         """
