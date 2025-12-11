@@ -9,7 +9,7 @@
 5. 支持自定义线程数和重试参数
 
 使用说明：
-1. 设置环境变量 DEEPSEEK_API_KEY
+1. 设置环境变量 AKASHML_API_KEY
 2. 修改 source_origin_book_name 为要翻译的文件名
 3. 根据需要调整 TranslateConfig 参数：
    - max_workers: 线程数，建议3-10个（太多可能导致API限流）
@@ -17,7 +17,6 @@
    - retry_delay: 重试延迟，默认1秒
 
 注意事项：
-- DeepSeek API有速率限制，建议线程数不要超过10个
 - 网络不稳定时建议增加重试次数和延迟时间
 - 翻译大文件时建议先测试小文件确认配置合适
 - 这个版本不生成PDF文件，只生成txt文件
