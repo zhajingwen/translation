@@ -20,12 +20,16 @@ uv sync
 
 **获取API密钥：**
 - **DeepSeek API**（推荐）：访问 [DeepSeek平台](https://platform.deepseek.com) 注册账号并获取API密钥
+- **AkashML API**：访问 [AkashML平台](https://playground.akashml.com/) 注册账号并获取API密钥
 - **OpenAI API**：访问 [OpenAI平台](https://platform.openai.com) 注册账号并获取API密钥
 
 **设置环境变量：**
 ```bash
 # DeepSeek API（推荐，性价比最高）
 export DEEPSEEK_API_KEY="your-deepseek-api-key"
+
+# 或使用 AkashML API
+export AKASHML_API_KEY="your-akashml-api-key"
 
 # 或使用 OpenAI API
 export OPENAI_API_KEY="your-openai-api-key"
@@ -46,8 +50,13 @@ python deepseek.py
 # 或单文件翻译（仅生成TXT，更快）
 python deepseek_nopdf.py
 
+# 或使用 AkashML 翻译（仅生成TXT）
+python akashml.py
+
 # 或批量翻译（自动处理files目录下所有txt/pdf/epub文件）
 python batch_deepseek.py
+# 或使用 AkashML 批量翻译
+python batch_akashml.py
 ```
 
 **第五步：查看结果**
@@ -57,6 +66,7 @@ python batch_deepseek.py
 
 1. **选择翻译方式**：
    - 🏆 **推荐**：DeepSeek多线程（性价比最高，每100页约2毛钱）
+   - 🚀 **备选**：AkashML多线程（使用Qwen3-30B模型，仅生成TXT）
    - 💰 **省钱**：OpenAI批处理（最便宜，但需等待24小时）
    - ⚡ **快速**：DeepSeek多线程（实时反馈，速度快）
    - 🔒 **隐私**：本地Ollama（完全免费，但需要本地资源）
@@ -74,12 +84,12 @@ python batch_deepseek.py
 ## 功能特性
 
 - 📚 支持PDF、EPUB、TXT格式的文档翻译
-- 🚀 多种翻译方式：DeepSeek多线程（推荐）、DeepSeek批量翻译、OpenAI GPT-4o-mini、OpenAI批处理模式、本地Ollama模型
+- 🚀 多种翻译方式：DeepSeek多线程（推荐）、AkashML多线程、DeepSeek批量翻译、OpenAI GPT-4o-mini、OpenAI批处理模式、本地Ollama模型
 - 💰 成本优化：批处理模式可节省50%费用，DeepSeek最经济（每100页约2毛钱）
 - 🔄 自动重试机制：提高翻译成功率，支持自定义重试次数和延迟
-- ⚡ 多线程并行：DeepSeek版本支持多线程并发翻译，大幅提升速度
+- ⚡ 多线程并行：DeepSeek和AkashML版本支持多线程并发翻译，大幅提升速度
 - 📦 批量处理：支持自动批量翻译files目录下的所有txt/pdf/epub文件，翻译完成后自动清理
-- 📄 多格式输出：同时生成TXT和PDF格式的翻译结果（deepseek_nopdf.py仅生成TXT）
+- 📄 多格式输出：同时生成TXT和PDF格式的翻译结果（deepseek_nopdf.py和akashml.py仅生成TXT）
 - 🎨 中文排版：使用楷体字体，支持中文PDF生成
 
 ## 项目结构
@@ -88,7 +98,9 @@ python batch_deepseek.py
 translation/
 ├── deepseek.py            # DeepSeek 多线程翻译（生成PDF+TXT）
 ├── deepseek_nopdf.py     # DeepSeek 多线程翻译（仅生成TXT，不生成PDF）
-├── batch_deepseek.py     # DeepSeek 批量翻译脚本（自动处理files目录下所有txt文件）
+├── batch_deepseek.py     # DeepSeek 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
+├── akashml.py            # AkashML 多线程翻译（仅生成TXT，使用Qwen3-30B模型）
+├── batch_akashml.py      # AkashML 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
 ├── chatgpt_translate.py   # OpenAI GPT-4o-mini 实时翻译
 ├── chatgpt_batch.py       # OpenAI 批处理翻译
 ├── ollama_local_qwen2.py  # 本地Ollama模型翻译
@@ -143,7 +155,88 @@ uv sync
 **版本说明：**
 - `deepseek.py`: 生成PDF和TXT两种格式的翻译结果（推荐需要PDF的场景）
 - `deepseek_nopdf.py`: 仅生成TXT格式，不生成PDF（速度更快，适合只需要文本的场景）
-- `batch_deepseek.py`: 批量翻译脚本，自动处理files目录下所有txt文件
+- `batch_deepseek.py`: 批量翻译脚本，自动处理files目录下所有txt/pdf/epub文件
+
+### 1.5. AkashML 多线程翻译 🚀
+
+**优势：**
+- ✅ 使用Qwen3-30B-A3B模型，翻译质量高
+- ⚡ 多线程并行翻译，大幅提升翻译速度
+- 🔄 智能重试机制，自动处理网络波动和API限流
+- 📊 实时进度跟踪，支持失败页面统计
+- 📝 支持PDF、EPUB、TXT格式
+- 🎯 自动过滤空白页，提高翻译效率
+- 📄 仅生成TXT格式，速度更快
+
+**版本说明：**
+- `akashml.py`: 单文件翻译，仅生成TXT格式（使用Qwen3-30B模型）
+- `batch_akashml.py`: 批量翻译脚本，自动处理files目录下所有txt/pdf/epub文件
+
+**快速开始：**
+
+**单文件翻译（仅生成TXT）：**
+1. 打开 `akashml.py` 文件
+2. 修改第584行的文件名：
+   ```python
+   source_origin_book_name = "your_book.txt"  # 或 .pdf 或 .epub
+   ```
+3. 调整配置（第587-591行）：
+   ```python
+   config = TranslateConfig(
+       max_workers=10,      # 线程数，建议3-10个（太多可能导致API限流）
+       max_retries=5,       # 最大重试次数
+       retry_delay=10       # 重试延迟时间(秒)
+   )
+   ```
+4. 运行：
+   ```bash
+   python akashml.py
+   ```
+
+**批量翻译（自动处理files目录下所有txt/pdf/epub文件）：**
+1. 将需要翻译的文件（txt/pdf/epub）放入 `files/` 目录
+2. 打开 `batch_akashml.py` 文件，调整配置（第27-31行）
+3. 运行：
+   ```bash
+   python batch_akashml.py
+   ```
+
+**环境变量设置：**
+```bash
+# macOS/Linux
+export AKASHML_API_KEY="your-api-key"
+
+# Windows PowerShell
+$env:AKASHML_API_KEY="your-api-key"
+
+# Windows CMD
+set AKASHML_API_KEY=your-api-key
+```
+
+**配置参数说明：**
+
+| 参数 | 说明 | 推荐值 | 注意事项 |
+|------|------|--------|----------|
+| `max_workers` | 线程数 | 3-10 | 太多可能导致API限流，建议从5开始测试 |
+| `max_retries` | 最大重试次数 | 5-10 | 网络不稳定时建议增加到10 |
+| `retry_delay` | 重试延迟(秒) | 5-10 | API限流时建议增加到10秒以上 |
+
+**批量翻译功能说明：**
+- ✅ 自动扫描 `files/` 目录下的所有 `.txt`、`.pdf`、`.epub` 文件
+- ✅ 跳过已翻译的文件（文件名以 `translated.txt` 结尾或已存在对应的翻译文件）
+- ✅ 翻译完成后自动删除原始文件（请确保已备份）
+- ✅ 支持日志记录，方便追踪翻译进度
+- ✅ 失败时继续处理其他文件，不会中断整个批量任务
+- ✅ 支持多种文件格式混合批量处理
+
+**注意事项：**
+- ⚠️ AkashML API有速率限制，建议线程数不超过10个
+- ⚠️ 网络不稳定时建议增加重试次数和延迟时间
+- ⚠️ 翻译大文件时建议先测试小文件确认配置合适
+- ⚠️ 批量翻译会自动删除原始文件（txt/pdf/epub），请确保已备份重要文件
+- ⚠️ 如果翻译过程中有页面失败，程序会询问是否继续处理成功的页面
+- ⚠️ 批量翻译支持txt、pdf、epub三种格式混合处理
+- ⚠️ 此版本不生成PDF文件，只生成TXT文件
 
 **快速开始：**
 
@@ -339,6 +432,8 @@ export OPENAI_API_KEY="your-api-key"
 |---------|-------------------|---------|------|------|
 | DeepSeek多线程 ⭐ | ~¥0.2 | 中文 | 快（多线程） | 性价比最高，推荐使用 |
 | DeepSeek批量翻译 ⭐⭐ | ~¥0.2 | 中文 | 快（多线程+批量） | 自动批量处理，适合大量文件 |
+| AkashML多线程 🚀 | 需查询 | 中文 | 快（多线程） | 使用Qwen3-30B模型，仅生成TXT |
+| AkashML批量翻译 🚀🚀 | 需查询 | 中文 | 快（多线程+批量） | 自动批量处理，仅生成TXT |
 | OpenAI批处理 | ~¥0.17 | 中文 | 慢（异步） | 最便宜，需24小时 |
 | OpenAI实时 | ~¥0.36 | 中文 | 中 | 实时反馈 |
 | 本地Ollama | ¥0 | 需修改 | 很慢 | 完全免费，需本地资源 |
@@ -349,7 +444,7 @@ export OPENAI_API_KEY="your-api-key"
 
 如果翻译过程中断，可以指定从特定页面继续：
 
-### DeepSeek版本
+### DeepSeek版本和AkashML版本
 自动完成断点续传，失败的页面会跳过，支持部分失败场景。
 
 ### 其他版本
@@ -370,6 +465,13 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 - `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
 
 ### DeepSeek批量翻译（batch_deepseek.py）：
+- `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
+- 翻译完成后自动删除原始文件（txt/pdf/epub）
+
+### AkashML多线程翻译（akashml.py）：
+- `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
+
+### AkashML批量翻译（batch_akashml.py）：
 - `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
 - 翻译完成后自动删除原始文件（txt/pdf/epub）
 
@@ -396,9 +498,20 @@ config = TranslateConfig(
 )
 ```
 
+### AkashML多线程高级配置
+
+```python
+# 自定义配置示例（与DeepSeek配置相同）
+config = TranslateConfig(
+    max_workers=5,       # 线程数（根据API限制调整）
+    max_retries=5,       # 重试次数
+    retry_delay=5        # 重试延迟（秒）
+)
+```
+
 ### 空白页过滤
 
-DeepSeek版本已内置空白页过滤功能，会自动跳过：
+DeepSeek版本和AkashML版本已内置空白页过滤功能，会自动跳过：
 - 空页面
 - 只包含空白字符的页面
 - 只包含控制字符的页面
@@ -411,10 +524,12 @@ DeepSeek版本已内置空白页过滤功能，会自动跳过：
 3. **API限制**：
    - OpenAI API有速率限制，大批量翻译建议使用批处理模式
    - DeepSeek API也有限制，建议线程数3-10个
+   - AkashML API也有限制，建议线程数3-10个
 4. **本地模型**：使用Ollama需要足够的本地计算资源（推荐8GB+内存）
 5. **文件大小**：建议单次翻译的文档不要过大，避免内存溢出
-6. **翻译语言**：DeepSeek和OpenAI版本默认翻译成中文；本地Ollama版本需修改提示词
+6. **翻译语言**：DeepSeek、AkashML和OpenAI版本默认翻译成中文；本地Ollama版本需修改提示词
 7. **网络稳定性**：建议在网络稳定的环境下使用，避免翻译中断
+8. **输出格式**：`deepseek_nopdf.py`和`akashml.py`仅生成TXT格式，不生成PDF文件
 
 ## 常见问题解答 (FAQ)
 
@@ -422,15 +537,16 @@ DeepSeek版本已内置空白页过滤功能，会自动跳过：
 
 **A:** 根据你的需求选择：
 - **需要快速翻译，预算有限** → DeepSeek多线程（推荐）
-- **需要批量处理大量文件** → DeepSeek批量翻译或OpenAI批处理
-- **需要实时反馈，文件较小** → DeepSeek多线程或OpenAI实时
+- **需要批量处理大量文件** → DeepSeek批量翻译、AkashML批量翻译或OpenAI批处理
+- **需要实时反馈，文件较小** → DeepSeek多线程、AkashML多线程或OpenAI实时
+- **需要高质量模型（Qwen3-30B）** → AkashML多线程
 - **数据敏感，需要隐私保护** → 本地Ollama
 - **预算充足，需要高质量** → OpenAI实时
 
 ### Q2: 翻译过程中断怎么办？
 
 **A:** 
-- **DeepSeek版本**：自动支持断点续传，失败的页面会跳过，可以重新运行继续翻译
+- **DeepSeek版本和AkashML版本**：自动支持断点续传，失败的页面会跳过，可以重新运行继续翻译
 - **OpenAI批处理**：保存返回的`batch_job_id`，下次运行时填入即可续传
 - **其他版本**：可以使用`interupt`参数从指定页面继续
 
@@ -500,6 +616,30 @@ $env:DEEPSEEK_API_KEY="your-key"
 
 **问题：API额度不足**
 - 登录 [DeepSeek平台](https://platform.deepseek.com) 检查余额
+- 充值后重新运行
+
+### AkashML API相关
+
+**问题：API密钥错误**
+```bash
+# 检查环境变量是否正确设置
+echo $AKASHML_API_KEY
+
+# 重新设置（macOS/Linux）
+export AKASHML_API_KEY="your-key"
+
+# Windows PowerShell
+$env:AKASHML_API_KEY="your-key"
+```
+
+**问题：API限流**
+- ✅ 减少`max_workers`到3-5个
+- ✅ 增加`retry_delay`到10秒以上
+- ✅ 增加`max_retries`到10次
+- ✅ 等待一段时间后重试
+
+**问题：API额度不足**
+- 登录 [AkashML平台](https://playground.akashml.com/) 检查余额
 - 充值后重新运行
 
 ### OpenAI API相关
@@ -578,12 +718,13 @@ ollama pull qwen2:7b
 ## 性能优化建议
 
 1. **选择合适的翻译方式**
-   - 大批量文档：使用DeepSeek多线程或OpenAI批处理
-   - 小文件测试：使用DeepSeek多线程或OpenAI实时
+   - 大批量文档：使用DeepSeek多线程、AkashML多线程或OpenAI批处理
+   - 小文件测试：使用DeepSeek多线程、AkashML多线程或OpenAI实时
+   - 需要高质量模型：使用AkashML（Qwen3-30B）
    - 隐私要求高：使用本地Ollama
 
 2. **调整线程数**
-   - DeepSeek API稳定：`max_workers=10`
+   - DeepSeek/AkashML API稳定：`max_workers=10`
    - 遇到限流：`max_workers=3-5`
    - 网络不稳定：`max_workers=5, max_retries=10`
 
@@ -619,7 +760,14 @@ ollama pull qwen2:7b
 
 ## 更新日志
 
-### v2.2.0 (最新)
+### v2.3.0 (最新)
+- ✨ 新增AkashML多线程翻译支持（akashml.py）
+- ✨ 新增AkashML批量翻译脚本（batch_akashml.py）
+- 🚀 使用Qwen3-30B-A3B模型，翻译质量高
+- 📄 AkashML版本仅生成TXT格式，速度更快
+- 📝 更新README文档，添加AkashML使用说明
+
+### v2.2.0
 - 📚 完善README文档，添加快手上手指引
 - 📖 新增详细的使用说明和常见问题解答
 - 🔧 优化配置说明，添加参数表格
