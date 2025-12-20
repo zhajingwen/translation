@@ -15,9 +15,6 @@
    - max_workers: 线程数，建议3-10个（太多可能导致API限流）
    - max_retries: 重试次数，默认3次
    - retry_delay: 重试延迟，默认1秒
-   - chunk_size: 文本切割阈值，默认8000字符
-   - min_chunk_size: 最小切割长度，默认500字符
-   - api_timeout: API超时时间，默认60秒
 
 注意事项：
 - akashml 最高支持10个并发，建议线程数不要超过10个
@@ -68,18 +65,10 @@ class TranslateConfig:
     """
     翻译配置类
     """
-    def __init__(self, max_workers=5, max_retries=3, retry_delay=1,
-                 chunk_size=8000, min_chunk_size=500, api_timeout=60):
-        self.max_workers = max_workers      # 最大线程数
-        self.max_retries = max_retries      # 最大重试次数
-        self.retry_delay = retry_delay      # 重试延迟时间(秒)
-        self.chunk_size = chunk_size        # 文本切割阈值（字符数）
-        self.min_chunk_size = min_chunk_size  # 最小切割长度
-        self.api_timeout = api_timeout      # API 超时时间(秒)
-
-
-# 句子结束标点符号（中英文）
-SENTENCE_END_PUNCTUATION = ('。', '！', '？', '…', '.', '!', '?')
+    def __init__(self, max_workers=5, max_retries=3, retry_delay=1):
+        self.max_workers = max_workers  # 最大线程数
+        self.max_retries = max_retries  # 最大重试次数
+        self.retry_delay = retry_delay  # 重试延迟时间(秒)
 
 class Translate:
     """
@@ -110,7 +99,7 @@ class Translate:
 
     def extract_text_from_pdf(self, interupt=None):
         """
-        抽取PDF文本并使用统一的切割策略
+        抽取每一页的PDF提交给chatgpt翻译
         interupt：上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
         """
         reader = PdfReader(self.file_path)
@@ -128,10 +117,7 @@ class Translate:
             if not page_text:
                 continue
             content.append(page_text)
-        
-        # 合并所有页面内容后统一切割
-        full_content = '\n'.join(content)
-        return self.split_full_content_to_pages(full_content)
+        return content
 
     def is_blank_page(self, text):
         """
@@ -382,70 +368,46 @@ class Translate:
         page_list = self.split_full_content_to_pages(content)
         return page_list
 
-    def is_sentence_end(self, line):
-        """判断一行是否以句子结束标点结尾"""
-        line = line.rstrip()
-        if not line:
-            return False
-        return line[-1] in SENTENCE_END_PUNCTUATION
-
-    def split_full_content_to_pages(self, content, chunk_size=None):
+    def split_full_content_to_pages(self, content):
         """
-        将全文内容按阈值切割成多页
-        优先在句子结束标点处切割，保持语义完整性
-        
-        切割优先级：
-        1. 优先在以句子结束标点（。！？…. ! ?）结尾的行处切割
-        2. 如果找不到，退而求其次在任意行边界切割
+        将全文内容切割成每2000字一页
         """
-        chunk_size = chunk_size or self.config.chunk_size
-        
-        if len(content) <= chunk_size:
-            return [content]
-        
-        page_list = []
-        rows = content.split('\n')
-        current_chunk_rows = []
-        current_length = 0
-        last_sentence_end_index = -1  # 记录最后一个句子结束点
-        
-        for i, row in enumerate(rows):
-            row_length = len(row) + 1  # +1 for newline
-            
-            # 检查是否是句子结束行
-            if self.is_sentence_end(row):
-                last_sentence_end_index = len(current_chunk_rows)
-            
-            # 如果加入当前行会超过阈值
-            if current_length + row_length > chunk_size and current_chunk_rows:
-                # 优先在最后一个句子结束点切割
-                if last_sentence_end_index >= 0:
-                    cut_point = last_sentence_end_index + 1
-                    page_list.append('\n'.join(current_chunk_rows[:cut_point]))
-                    # 保留未切割的行
-                    current_chunk_rows = current_chunk_rows[cut_point:]
-                    current_length = sum(len(r) + 1 for r in current_chunk_rows)
+        if len(content) > 2000:
+            # 切割点
+            split_points = []
+            page_list = []
+            # 按行进行切割
+            rows = content.split('\n')
+            for index, row in enumerate(rows):
+                if index == 0:
+                    continue
+                # 第一次切割
+                if not split_points:
+                    page_content = rows[:index+1]
+                    page_content = '\n'.join(page_content)
+                    if len(page_content) > 2000:
+                        split_points.append(index)
+                        # 第一页加入列表
+                        page_list.append('\n'.join(rows[:index]))
+                # 非第一次切割
                 else:
-                    # 没有句子结束点，在当前位置切割
-                    page_list.append('\n'.join(current_chunk_rows))
-                    current_chunk_rows = []
-                    current_length = 0
-                last_sentence_end_index = -1
-            
-            current_chunk_rows.append(row)
-            current_length += row_length
-        
-        # 处理最后剩余的内容
-        if current_chunk_rows:
-            page_list.append('\n'.join(current_chunk_rows))
-        
-        return page_list
+                    start_point = split_points[-1]
+                    page_content = rows[start_point:index+1]
+                    page_content = '\n'.join(page_content)
+                    if len(page_content) > 2000:
+                        split_points.append(index)
+                        page_list.append('\n'.join(rows[start_point:index]))
+            the_last_page = '\n'.join(rows[split_points[-1]:])
+            page_list.append(the_last_page)
+            return page_list
+        else:
+            return [content]
 
     def extract_text_from_txt(self):
         """
         解析txt文件
         抽取txt文件提交给chatgpt翻译
-        使用配置的 chunk_size 进行文本切割
+        每一段文本呢限制在2000字以内
         """
         with open(self.file_path, 'r', encoding='utf-8') as file:
             content = file.read()
@@ -471,7 +433,7 @@ class Translate:
                     {"role": "user", "content": f"将该文本翻译成中文: {text_origin}"}
                 ],
                 stream=False,
-                timeout=self.config.api_timeout
+                timeout=30
             )
             return response.choices[0].message.content
         except:
@@ -624,12 +586,9 @@ if __name__ == '__main__':
     
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
-        max_workers=10,       # 最大线程数，建议3-10个
-        max_retries=5,        # 最大重试次数
-        retry_delay=10,       # 重试延迟时间(秒)
-        chunk_size=8000,      # 文本切割阈值（字符数），默认8000
-        min_chunk_size=500,   # 最小切割长度
-        api_timeout=60        # API 超时时间(秒)
+        max_workers=10,      # 最大线程数，建议3-10个
+        max_retries=5,      # 最大重试次数
+        retry_delay=10       # 重试延迟时间(秒)
     )
     
     # 启动翻译任务
