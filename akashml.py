@@ -389,7 +389,63 @@ class Translate:
             return False
         return line[-1] in SENTENCE_END_PUNCTUATION
 
-    def split_full_content_to_pages(self, content, chunk_size=None):
+    def split_long_line(self, line, chunk_size=None):
+        """
+        处理超长单行，按句子标点或固定长度切割
+        
+        参数：
+        - line: 需要切割的单行文本
+        - chunk_size: 切割阈值
+        
+        返回：
+        - 切割后的行列表
+        """
+        chunk_size = chunk_size or self.config.chunk_size
+        
+        if len(line) <= chunk_size:
+            return [line]
+        
+        result = []
+        remaining = line
+        
+        while len(remaining) > chunk_size:
+            # 在 chunk_size 范围内查找最后一个句子结束标点
+            search_range = remaining[:chunk_size]
+            cut_pos = -1
+            
+            # 从后向前查找句子结束标点
+            for i in range(len(search_range) - 1, -1, -1):
+                if search_range[i] in SENTENCE_END_PUNCTUATION:
+                    cut_pos = i + 1  # 包含标点符号
+                    break
+            
+            if cut_pos > 0:
+                # 找到句子结束点，在此处切割
+                result.append(remaining[:cut_pos])
+                remaining = remaining[cut_pos:].lstrip()  # 去除切割后的前导空白
+            else:
+                # 未找到句子结束标点，查找其他断句点（逗号、分号等）
+                secondary_punctuation = (',', '，', ';', '；', ':', '：', ' ')
+                for i in range(len(search_range) - 1, -1, -1):
+                    if search_range[i] in secondary_punctuation:
+                        cut_pos = i + 1
+                        break
+                
+                if cut_pos > 0:
+                    result.append(remaining[:cut_pos])
+                    remaining = remaining[cut_pos:].lstrip()
+                else:
+                    # 无任何断句点，强制按 chunk_size 切割
+                    result.append(remaining[:chunk_size])
+                    remaining = remaining[chunk_size:]
+        
+        # 添加剩余内容
+        if remaining:
+            result.append(remaining)
+        
+        return result
+
+    def split_full_content_to_pages(self, content, chunk_size=None, min_chunk_size=None):
         """
         将全文内容按阈值切割成多页
         优先在句子结束标点处切割，保持语义完整性
@@ -397,27 +453,43 @@ class Translate:
         切割优先级：
         1. 优先在以句子结束标点（。！？…. ! ?）结尾的行处切割
         2. 如果找不到，退而求其次在任意行边界切割
+        
+        参数：
+        - chunk_size: 最大切割阈值（字符数），超过此值会触发切割
+        - min_chunk_size: 最小切割长度，块长度未达到此值时不会切割
         """
         chunk_size = chunk_size or self.config.chunk_size
+        min_chunk_size = min_chunk_size or self.config.min_chunk_size
         
         if len(content) <= chunk_size:
             return [content]
         
         page_list = []
         rows = content.split('\n')
+        
+        # 预处理：对超长单行进行切割
+        processed_rows = []
+        for row in rows:
+            if len(row) > chunk_size:
+                # 超长行需要切割
+                split_lines = self.split_long_line(row, chunk_size)
+                processed_rows.extend(split_lines)
+            else:
+                processed_rows.append(row)
+        
         current_chunk_rows = []
         current_length = 0
         last_sentence_end_index = -1  # 记录最后一个句子结束点
         
-        for i, row in enumerate(rows):
+        for i, row in enumerate(processed_rows):
             row_length = len(row) + 1  # +1 for newline
             
             # 检查是否是句子结束行
             if self.is_sentence_end(row):
                 last_sentence_end_index = len(current_chunk_rows)
             
-            # 如果加入当前行会超过阈值
-            if current_length + row_length > chunk_size and current_chunk_rows:
+            # 如果加入当前行会超过阈值，且当前块已达到最小长度要求
+            if current_length + row_length > chunk_size and current_chunk_rows and current_length >= min_chunk_size:
                 # 优先在最后一个句子结束点切割
                 if last_sentence_end_index >= 0:
                     cut_point = last_sentence_end_index + 1
@@ -437,7 +509,13 @@ class Translate:
         
         # 处理最后剩余的内容
         if current_chunk_rows:
-            page_list.append('\n'.join(current_chunk_rows))
+            # 如果最后一块太短，尝试合并到前一块
+            last_chunk = '\n'.join(current_chunk_rows)
+            if len(last_chunk) < min_chunk_size and page_list:
+                # 合并到前一块
+                page_list[-1] = page_list[-1] + '\n' + last_chunk
+            else:
+                page_list.append(last_chunk)
         
         return page_list
 
