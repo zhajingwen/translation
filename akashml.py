@@ -543,12 +543,12 @@ class Translate:
             print(f'成功翻译: {len(page_list) - len(failed_pages)} 页')
             print(f'失败页面: {len(failed_pages)} 页')
             
-            # 询问是否继续处理成功的页面
-            user_input = input('是否继续处理成功翻译的页面？(y/n): ').lower().strip()
-            if user_input == 'n':
-                raise Exception(f'有 {len(failed_pages)} 页翻译失败: {failed_pages}')
-            else:
-                print('继续处理成功翻译的页面...')
+            # # 询问是否继续处理成功的页面
+            # user_input = input('是否继续处理成功翻译的页面？(y/n): ').lower().strip()
+            # if user_input == 'n':
+            #     raise Exception(f'有 {len(failed_pages)} 页翻译失败: {failed_pages}')
+            # else:
+            #     print('继续处理成功翻译的页面...')
         
         # 按顺序组合翻译结果
         text = ""
