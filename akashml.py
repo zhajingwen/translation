@@ -651,6 +651,7 @@ class Translate:
         """
         翻译单个 chunk 文本
         page_data: (page_index, page_content)
+        返回: (page_index, translated_text, is_success)
         """
         page_index, page_content = page_data
         total = getattr(self, 'total_chunks', '?')
@@ -672,15 +673,17 @@ class Translate:
                         logger.debug(f'{chunk_tag} 完成，译文预览: {result_preview}')
                     else:
                         logger.debug(f'{chunk_tag} 完成')
-                    return page_index, chinese
+                    return page_index, chinese, True  # 翻译成功
                 else:
                     logger.warning(f'{chunk_tag} 失败 (第 {attempt + 1} 次)')
                     
             except Exception as e:
                 logger.error(f'{chunk_tag} 异常 (第 {attempt + 1} 次): {e}')
         
+        # 翻译失败时，返回带标记的原文
         logger.error(f'{chunk_tag} 最终失败，已重试 {self.config.max_retries} 次')
-        return page_index, None
+        failed_content = f"\n[翻译失败 - Chunk {page_index + 1}]\n{page_content}\n[/翻译失败]\n"
+        return page_index, failed_content, False  # 翻译失败，保留原文
 
     def translate_text(self, page_list):
         """
@@ -695,8 +698,8 @@ class Translate:
         # 准备页面数据 (索引, 内容)
         page_data_list = [(i, page) for i, page in enumerate(page_list)]
         
-        # 初始化结果列表
-        self.text_list = [None] * len(page_list)
+        # 初始化结果列表，存储 (翻译结果, 是否成功)
+        self.text_list = [(None, False)] * len(page_list)
         
         # 使用线程池进行翻译
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
@@ -712,11 +715,11 @@ class Translate:
             
             for future in as_completed(future_to_page):
                 try:
-                    page_index, translated_text = future.result()
-                    self.text_list[page_index] = translated_text
+                    page_index, translated_text, success = future.result()
+                    self.text_list[page_index] = (translated_text, success)
                     completed_count += 1
                     
-                    if translated_text is None:
+                    if not success:
                         failed_pages.append(page_index + 1)
                     
                     # 进度日志优化：每5%打印一次，或完成时打印
@@ -735,9 +738,13 @@ class Translate:
                         self._last_progress_percent = percent
                     
                 except Exception as e:
-                    # 异常时从 future_to_page 获取 page_index
+                    # 异常时从 future_to_page 获取 page_index，保留原文
                     failed_page_index = future_to_page[future]
                     logger.error(f'[翻译][Chunk {failed_page_index + 1}/{len(page_list)}] 处理异常: {e}')
+                    # 获取原始内容并标记为失败
+                    original_content = page_list[failed_page_index]
+                    failed_content = f"\n[翻译失败 - Chunk {failed_page_index + 1}]\n{original_content}\n[/翻译失败]\n"
+                    self.text_list[failed_page_index] = (failed_content, False)
                     failed_pages.append(failed_page_index + 1)
                     completed_count += 1
         
@@ -745,13 +752,16 @@ class Translate:
         if failed_pages:
             logger.warning(f'[翻译] 翻译结果: 成功={len(page_list) - len(failed_pages)}, 失败={len(failed_pages)}, 失败列表={failed_pages}')
         
-        # 按顺序组合翻译结果
+        # 按顺序组合翻译结果（包含所有内容，不跳过失败的 chunk）
         text = ""
-        for translated_text in self.text_list:
+        success_count = 0
+        for translated_text, is_success in self.text_list:
             if translated_text:
                 text += f'{translated_text}\n'
+                if is_success:
+                    success_count += 1
         
-        logger.info(f'[翻译] 全部完成，共 {len(page_list)} 个chunk')
+        logger.info(f'[翻译] 全部完成，共 {len(page_list)} 个chunk，成功 {success_count} 个')
         return text
 
     def run(self):
@@ -782,7 +792,7 @@ class Translate:
             return False
         
         # 检查成功翻译的 chunk 数量
-        success_count = sum(1 for t in self.text_list if t is not None)
+        success_count = sum(1 for text, success in self.text_list if success)
         if success_count == 0:
             logger.error('[任务] 所有 chunk 翻译失败，不会保存文件')
             return False
@@ -792,7 +802,7 @@ class Translate:
             end_time = time.time()
             
             # 任务结束统计
-            success_count = sum(1 for t in self.text_list if t is not None)
+            success_count = sum(1 for text, success in self.text_list if success)
             fail_count = len(self.text_list) - success_count
             translated_chars = len(translated_text)
             duration = end_time - start_time
