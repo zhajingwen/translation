@@ -41,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ================== 日志配置 ==================
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-LOG_SHOW_CONTENT = os.environ.get('LOG_SHOW_CONTENT', 'false').lower() == 'true'
+LOG_SHOW_CONTENT = os.environ.get('LOG_SHOW_CONTENT', 'true').lower() == 'true'
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
