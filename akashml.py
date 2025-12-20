@@ -824,8 +824,8 @@ if __name__ == '__main__':
     
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
-        max_workers=10,       # 最大线程数，建议3-10个
-        max_retries=5,        # 最大重试次数
+        max_workers=9,       # 最大线程数，建议5-9个
+        max_retries=6,        # 最大重试次数
         retry_delay=10,       # 重试延迟时间(秒)
         chunk_size=20000,      # 文本切割阈值（字符数），默认8000
         min_chunk_size=1000,   # 最小切割长度（字符数），默认500
