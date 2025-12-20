@@ -817,8 +817,8 @@ if __name__ == '__main__':
         max_workers=10,       # 最大线程数，建议3-10个
         max_retries=5,        # 最大重试次数
         retry_delay=10,       # 重试延迟时间(秒)
-        chunk_size=8000,      # 文本切割阈值（字符数），默认8000
-        min_chunk_size=500,   # 最小切割长度
+        chunk_size=20000,      # 文本切割阈值（字符数），默认8000
+        min_chunk_size=1000,   # 最小切割长度（字符数），默认500
         api_timeout=60        # API 超时时间(秒)
     )
     
