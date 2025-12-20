@@ -31,12 +31,12 @@ import time
 import re
 import logging
 from traceback import format_exc
-from openai import OpenAI
+from openai import OpenAI, APITimeoutError
 from PyPDF2 import PdfReader
 from fpdf import FPDF
 from ebooklib import epub
 from bs4 import BeautifulSoup
-# import threading
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ================== 日志配置 ==================
@@ -64,8 +64,9 @@ def get_api_client():
         base_url="https://api.akashml.com/v1"
     )
 
-# 延迟初始化客户端
+# 延迟初始化客户端（线程安全）
 client = None
+client_lock = threading.Lock()
 
 class PDF(FPDF):
     def __init__(self):
@@ -191,11 +192,13 @@ class Translate:
         printable_chars = sum(1 for c in text_clean if c.isprintable() and not c.isspace())
         total_chars = len(text_clean)
         
-        # 如果可打印字符数量很少，认为是空白页
+        # 可打印字符少于2个，直接认为空白
+        if printable_chars < 2:
+            return True
+        
+        # 可打印字符比例小于10%也认为空白
         if total_chars > 0 and printable_chars / total_chars < 0.1:
-            # 特别短的文本如果可打印字符少于2个，认为空白
-            if printable_chars < 2:
-                return True
+            return True
         
         # 3. 检查是否只包含常见的HTML空白实体和特殊字符
         blank_chars_only = all(c in [' ', '\n', '\t', '\r', '\xa0', '\u2000', '\u2001', 
@@ -307,6 +310,14 @@ class Translate:
                                 html_items.append(item)
                             except Exception as e3:
                                 logger.error(f'[提取][EPUB] 无法读取文件 {item_path}: {e3}')
+                                # 添加错误占位符，保持与正常流程一致
+                                error_item = epub.EpubHtml(
+                                    uid=item_info['href'],
+                                    file_name=item_path,
+                                    media_type=item_info['media_type']
+                                )
+                                error_item.content = f"[读取出错: {e3}]".encode('utf-8')
+                                html_items.append(error_item)
                     
                     # 如果手动解析也失败，抛出异常
                     if not html_items:
@@ -529,12 +540,17 @@ class Translate:
                     # 保留未切割的行
                     current_chunk_rows = current_chunk_rows[cut_point:]
                     current_length = sum(len(r) + 1 for r in current_chunk_rows)
+                    # 重新计算保留行中的句子结束点
+                    last_sentence_end_index = -1
+                    for idx, remaining_row in enumerate(current_chunk_rows):
+                        if self.is_sentence_end(remaining_row):
+                            last_sentence_end_index = idx
                 else:
                     # 没有句子结束点，在当前位置切割
                     page_list.append('\n'.join(current_chunk_rows))
                     current_chunk_rows = []
                     current_length = 0
-                last_sentence_end_index = -1
+                    last_sentence_end_index = -1
             
             current_chunk_rows.append(row)
             current_length += row_length
@@ -569,9 +585,11 @@ class Translate:
         global client
         
         try:
-            # 延迟初始化客户端
+            # 延迟初始化客户端（双重检查锁定，线程安全）
             if client is None:
-                client = get_api_client()
+                with client_lock:
+                    if client is None:
+                        client = get_api_client()
             
             # 仅在启用时打印内容预览（隐私保护）
             if LOG_SHOW_CONTENT:
@@ -592,7 +610,12 @@ class Translate:
             # API Key 配置错误
             logger.error(f'[翻译] 配置错误: {e}')
             raise  # 重新抛出，终止程序
+        except APITimeoutError:
+            # OpenAI 库的超时异常
+            logger.error('[翻译] API请求超时')
+            return None
         except TimeoutError:
+            # 标准超时异常（后备）
             logger.error('[翻译] API请求超时')
             return None
         except Exception as e:
@@ -673,7 +696,6 @@ class Translate:
         page_data_list = [(i, page) for i, page in enumerate(page_list)]
         
         # 初始化结果列表
-        results = [None] * len(page_list)
         self.text_list = [None] * len(page_list)
         
         # 使用线程池进行翻译
@@ -689,10 +711,8 @@ class Translate:
             failed_pages = []
             
             for future in as_completed(future_to_page):
-                page_index = future_to_page[future]
                 try:
                     page_index, translated_text = future.result()
-                    results[page_index] = translated_text
                     self.text_list[page_index] = translated_text
                     completed_count += 1
                     
@@ -715,8 +735,10 @@ class Translate:
                         self._last_progress_percent = percent
                     
                 except Exception as e:
-                    logger.error(f'[翻译][Chunk {page_index + 1}/{len(page_list)}] 处理异常: {e}')
-                    failed_pages.append(page_index + 1)
+                    # 异常时从 future_to_page 获取 page_index
+                    failed_page_index = future_to_page[future]
+                    logger.error(f'[翻译][Chunk {failed_page_index + 1}/{len(page_list)}] 处理异常: {e}')
+                    failed_pages.append(failed_page_index + 1)
                     completed_count += 1
         
         # 检查是否有失败的 chunk（合并冗余日志为一条）
