@@ -126,6 +126,7 @@ class Translate:
         interupt：上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
         """
         reader = PdfReader(self.file_path)
+        total_pages = len(reader.pages)
         num = 0
         content = []
         for page in reader.pages:
@@ -135,6 +136,9 @@ class Translate:
                 if num < interupt:
                     continue
             logger.debug(f'[提取][PDF] 处理第 {num} 页')
+            # 每10页或每50页打印一次INFO级别进度日志
+            if num % 50 == 0 or num == total_pages:
+                logger.info(f'[提取][PDF] 进度: {num}/{total_pages} 页 ({num/total_pages*100:.1f}%)')
             page_text = page.extract_text()
             page_text = page_text.strip()
             if not page_text:
@@ -521,6 +525,11 @@ class Translate:
             else:
                 page_list.append(last_chunk)
         
+        # 添加切割统计日志
+        original_length = len(content)
+        avg_chunk_size = sum(len(chunk) for chunk in page_list) / len(page_list) if page_list else 0
+        logger.debug(f'[切割] 原文长度: {original_length} 字符, 切割后: {len(page_list)} 个chunk, 平均chunk大小: {avg_chunk_size:.0f} 字符')
+        
         return page_list
 
     def extract_text_from_txt(self):
@@ -534,9 +543,10 @@ class Translate:
         page_list = self.split_full_content_to_pages(content)
         return page_list
 
-    def translate(self, text_origin):
+    def translate(self, text_origin, chunk_info=None):
         """
         向API发起翻译请求
+        chunk_info: 可选的chunk信息，格式为 (chunk_index, total_chunks)，用于错误日志
         """
         try:
             # 仅在启用时打印内容预览（隐私保护）
@@ -555,17 +565,18 @@ class Translate:
             )
             return response.choices[0].message.content
         except:
-            logger.error(f'[翻译] API异常: {format_exc()}')
+            chunk_context = f'[Chunk {chunk_info[0]+1}/{chunk_info[1]}] ' if chunk_info else ''
+            logger.error(f'[翻译] {chunk_context}API异常: {format_exc()}')
             return
 
     def save_text_to_file(self, text):
         """
         保存翻译后的内容为 txt
         """
+        logger.info(f'[保存] 开始保存到: {self.output_txt} ({len(text)} 字符)')
         # 保存为txt
         with open(self.output_txt, 'w', encoding='utf-8')as f:
             f.write(text)
-        # 合并冗余日志：保存开始和完成合并为一条
         logger.info(f'[保存] 完成: {self.output_txt}')
 
     def extract_text(self):
@@ -590,6 +601,7 @@ class Translate:
         page_index, page_content = page_data
         total = getattr(self, 'total_chunks', '?')
         chunk_tag = f'[翻译][Chunk {page_index + 1}/{total}]'
+        chunk_info = (page_index, total)
         
         for attempt in range(self.config.max_retries + 1):
             try:
@@ -599,7 +611,7 @@ class Translate:
                 else:
                     logger.debug(f'{chunk_tag} 开始 ({len(page_content)} 字符)')
                 
-                chinese = self.translate(page_content)
+                chinese = self.translate(page_content, chunk_info=chunk_info)
                 if chinese:
                     # 合并冗余日志：翻译结果和完成合并为一条
                     if LOG_SHOW_CONTENT:
@@ -607,7 +619,7 @@ class Translate:
                         logger.debug(f'{chunk_tag} 完成，译文预览: {result_preview}')
                     else:
                         logger.debug(f'{chunk_tag} 完成')
-                    return page_index, chinese
+                    return page_index, chinese, attempt  # 返回重试次数
                 else:
                     logger.warning(f'{chunk_tag} 失败 (第 {attempt + 1} 次)')
                     
@@ -615,7 +627,7 @@ class Translate:
                 logger.error(f'{chunk_tag} 异常 (第 {attempt + 1} 次): {e}')
         
         logger.error(f'{chunk_tag} 最终失败，已重试 {self.config.max_retries} 次')
-        return page_index, None
+        return page_index, None, self.config.max_retries  # 返回最大重试次数
 
     def translate_text(self, page_list):
         """
@@ -634,6 +646,9 @@ class Translate:
         results = [None] * len(page_list)
         self.text_list = [None] * len(page_list)
         
+        # 重试统计
+        total_retries = 0
+        
         # 使用线程池进行翻译
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             # 提交所有翻译任务
@@ -649,10 +664,15 @@ class Translate:
             for future in as_completed(future_to_page):
                 page_index = future_to_page[future]
                 try:
-                    page_index, translated_text = future.result()
+                    result = future.result()
+                    page_index, translated_text, retry_count = result
                     results[page_index] = translated_text
                     self.text_list[page_index] = translated_text
                     completed_count += 1
+                    
+                    # 累计重试次数
+                    if retry_count > 0:
+                        total_retries += retry_count
                     
                     if translated_text is None:
                         failed_pages.append(page_index + 1)
@@ -668,8 +688,9 @@ class Translate:
                     if should_log:
                         elapsed = time.time() - self.translate_start_time
                         avg_time = elapsed / completed_count if completed_count > 0 else 0
+                        avg_speed = completed_count / elapsed if elapsed > 0 else 0  # chunk/s
                         eta = avg_time * (total - completed_count)
-                        logger.info(f'[进度] {percent:.0f}% ({completed_count}/{total}) | 已用: {elapsed:.0f}s | 剩余: {eta:.0f}s')
+                        logger.info(f'[进度] {percent:.0f}% ({completed_count}/{total}) | 已用: {elapsed:.0f}s | 剩余: {eta:.0f}s | 速度: {avg_speed:.2f} chunk/s')
                         self._last_progress_percent = percent
                     
                 except Exception as e:
@@ -678,8 +699,13 @@ class Translate:
                     completed_count += 1
         
         # 检查是否有失败的 chunk（合并冗余日志为一条）
+        success_count = len(page_list) - len(failed_pages)
         if failed_pages:
-            logger.warning(f'[翻译] 翻译结果: 成功={len(page_list) - len(failed_pages)}, 失败={len(failed_pages)}, 失败列表={failed_pages}')
+            logger.warning(f'[翻译] 翻译结果: 成功={success_count}, 失败={len(failed_pages)}, 失败列表={failed_pages}')
+        
+        # 添加重试统计
+        if total_retries > 0:
+            logger.info(f'[翻译] 重试统计: 总重试次数={total_retries}, 平均每个chunk重试={total_retries/len(page_list):.2f}次')
         
         # 按顺序组合翻译结果
         text = ""
