@@ -29,6 +29,7 @@
 import os
 import time
 import re
+import logging
 from traceback import format_exc
 from openai import OpenAI
 from PyPDF2 import PdfReader
@@ -37,6 +38,13 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 # import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ================== 日志配置 ==================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('Translator')
 
 # 使用akashml API https://playground.akashml.com/
 client = OpenAI(
@@ -51,7 +59,7 @@ class PDF(FPDF):
         try:
             self.add_font('kaiti', '', './kaiti.ttf')
         except Exception as e:
-            print(f"字体加载失败: {e}")
+            logger.warning(f"字体加载失败: {e}")
             # 如果字体加载失败，使用默认字体
             try:
                 self.add_font('kaiti', '', 'DejaVu')
@@ -122,7 +130,7 @@ class Translate:
             if interupt:
                 if num < interupt:
                     continue
-            print(f'开始处理第 {num} 页')
+            logger.debug(f'[PDF] 开始处理第 {num} 页')
             page_text = page.extract_text()
             page_text = page_text.strip()
             if not page_text:
@@ -184,17 +192,17 @@ class Translate:
             book = epub.read_epub(self.file_path, options={"ignore_ncx": True})
         except IndexError as e:
             # 处理某些 EPUB 文件缺少导航元素的问题
-            print(f'使用标准方式读取 EPUB 失败: {e}')
-            print('尝试使用备用方式读取 EPUB...')
+            logger.warning(f'使用标准方式读取 EPUB 失败: {e}')
+            logger.info('尝试使用备用方式读取 EPUB...')
             try:
                 # 尝试不忽略 NCX，或者使用其他选项
                 book = epub.read_epub(self.file_path)
             except Exception as e2:
-                print(f'备用方式也失败: {e2}')
+                logger.warning(f'备用方式也失败: {e2}')
                 # 最后尝试：手动处理 EPUB 文件
                 import zipfile
                 import xml.etree.ElementTree as ET
-                print('尝试手动解析 EPUB 文件...')
+                logger.info('尝试手动解析 EPUB 文件...')
                 book = epub.EpubBook()
                 with zipfile.ZipFile(self.file_path, 'r') as zip_ref:
                     # 读取 container.xml 找到 OPF 文件
@@ -268,14 +276,14 @@ class Translate:
                                 book.add_item(item)
                                 html_items.append(item)
                             except Exception as e3:
-                                print(f'无法读取文件 {item_path}: {e3}')
+                                logger.error(f'无法读取文件 {item_path}: {e3}')
                     
                     # 如果手动解析也失败，抛出异常
                     if not html_items:
                         raise Exception('无法从 EPUB 文件中提取任何内容')
                     
                     # 使用手动解析的 html_items
-                    print(f'手动解析成功，找到 {len(html_items)} 个 HTML 项目')
+                    logger.info(f'手动解析成功，找到 {len(html_items)} 个 HTML 项目')
                     # 继续使用下面的代码处理 html_items
                     num = 0
                     content = []
@@ -284,7 +292,7 @@ class Translate:
                         num += 1
                         if interupt and num < interupt:
                             continue
-                        print(f'开始处理第 {num} 页: {item.file_name}')
+                        logger.debug(f'[EPUB] 开始处理第 {num} 项: {item.file_name}')
                         try:
                             soup = BeautifulSoup(item.content, 'html.parser')
                             for script in soup(["script", "style"]):
@@ -292,15 +300,15 @@ class Translate:
                             page_text = soup.get_text(separator='\n', strip=True)
                             if self.is_blank_page(page_text):
                                 blank_count += 1
-                                print(f'第 {num} 页为空白页，已跳过')
+                                logger.debug(f'[EPUB] 第 {num} 项为空白页，已跳过')
                                 continue
                             content.append(page_text)
                         except Exception as e3:
-                            print(f'处理第 {num} 页时出错: {e3}')
+                            logger.error(f'[EPUB] 处理第 {num} 项时出错: {e3}')
                             content.append(f"[处理出错: {e3}]")
-                    print(f'共提取 {len(content)} 页有效内容')
+                    logger.info(f'共提取 {len(content)} 项有效内容')
                     if blank_count > 0:
-                        print(f'共过滤 {blank_count} 个空白页')
+                        logger.info(f'共过滤 {blank_count} 个空白项')
                     return content
         
         # 先收集所有需要处理的 HTML/XHTML 内容
@@ -322,17 +330,17 @@ class Translate:
                 try:
                     html_items.append(item)
                 except Exception as e:
-                    print(f'处理 HTML 项时出错: {e}')
+                    logger.error(f'处理 HTML 项时出错: {e}')
                     skipped_items.append((item.get_name(), item.media_type))
             else:
                 skipped_items.append((item.get_name(), item.media_type))
         
         # 打印跳过的项目信息
         if skipped_items:
-            print(f'跳过了 {len(skipped_items)} 个非正文项目 (图片、样式表、字体等)')
+            logger.debug(f'跳过了 {len(skipped_items)} 个非正文项目 (图片、样式表、字体等)')
             if len(skipped_items) <= 10:  # 如果跳过项目较少，显示详情
                 for name, mime_type in skipped_items:
-                    print(f'  - {name} ({mime_type})')
+                    logger.debug(f'  - {name} ({mime_type})')
         
         num = 0
         # 提取内容
@@ -345,7 +353,7 @@ class Translate:
                 if num < interupt:
                     continue
             
-            print(f'开始处理第 {num} 页: {item.get_name()}')
+            logger.debug(f'[EPUB] 开始处理第 {num} 项: {item.get_name()}')
             
             try:
                 # 解析 HTML 内容
@@ -361,21 +369,20 @@ class Translate:
                 # 检查和过滤空白页
                 if self.is_blank_page(page_text):
                     blank_count += 1
-                    print(f'第 {num} 页为空白页，已跳过')
+                    logger.debug(f'[EPUB] 第 {num} 项为空白页，已跳过')
                     continue  # 跳过空白页，不添加到内容列表
                 
                 # 添加有效内容
                 content.append(page_text)
                     
             except Exception as e:
-                print(f'处理第 {num} 页时出错: {e}')
-                print(f'  页面名称: {item.get_name()}')
+                logger.error(f'[EPUB] 处理第 {num} 项时出错: {e}, 项名称: {item.get_name()}')
                 # 出错时添加占位符，而不是完全跳过
                 content.append(f"[处理出错: {e}]")
         
-        print(f'共提取 {len(content)} 页有效内容')
+        logger.info(f'共提取 {len(content)} 项有效内容')
         if blank_count > 0:
-            print(f'共过滤 {blank_count} 个空白页')
+            logger.info(f'共过滤 {blank_count} 个空白项')
             
         # 重构分页标准
         content = '\n'.join(content)
@@ -541,7 +548,7 @@ class Translate:
             else:
                 text_origin_head = text_origin
             # 打印翻译文本的头部
-            print(f'翻译文本: {text_origin_head} ...')
+            logger.debug(f'翻译文本: {text_origin_head}...')
             response = client.chat.completions.create(
                 model="Qwen/Qwen3-30B-A3B",
                 messages=[
@@ -553,18 +560,18 @@ class Translate:
             )
             return response.choices[0].message.content
         except:
-            print(f'翻译异常: {format_exc()}')
+            logger.error(f'翻译异常: {format_exc()}')
             return
 
     def save_text_to_file(self, text):
         """
         保存翻译后的内容为 txt
         """
-        print(f'保存翻译后的内容为txt')
+        logger.info(f'保存翻译后的内容为 txt: {self.output_txt}')
         # 保存为txt
         with open(self.output_txt, 'w', encoding='utf-8')as f:
             f.write(text)
-        print(f'保存翻译后的内容为txt 完成')
+        logger.info(f'保存翻译后的内容完成')
 
     def extract_text(self):
         """
@@ -577,36 +584,40 @@ class Translate:
         elif '.txt' in self.file_path:
             return self.extract_text_from_txt()
         else:
-            print('不支持的文件类型')
+            logger.error(f'不支持的文件类型: {self.file_path}')
             return None
     
     def translate_page(self, page_data):
         """
-        翻译单页文本
+        翻译单个 chunk 文本
         page_data: (page_index, page_content)
         """
         page_index, page_content = page_data
+        total = getattr(self, 'total_chunks', '?')
+        chunk_tag = f'[Chunk {page_index + 1}/{total}]'
         
         for attempt in range(self.config.max_retries + 1):
             try:
                 if attempt > 0:
-                    print(f'重试翻译第 {page_index + 1} 页 (第 {attempt + 1} 次尝试)')
+                    logger.warning(f'{chunk_tag} 重试翻译 (第 {attempt + 1} 次尝试)')
                     time.sleep(self.config.retry_delay)  # 重试前等待
                 else:
-                    print(f'开始翻译第 {page_index + 1} 页')
+                    logger.debug(f'{chunk_tag} 开始翻译 ({len(page_content)} 字符)')
                 
                 chinese = self.translate(page_content)
                 if chinese:
-                    print(f'翻译结果: {chinese}')
-                    print(f'第 {page_index + 1} 页翻译完成')
+                    # 只打印翻译结果的前150字符
+                    result_preview = chinese[:150] + '...' if len(chinese) > 150 else chinese
+                    logger.debug(f'{chunk_tag} 翻译结果: {result_preview}')
+                    logger.debug(f'{chunk_tag} 翻译完成')
                     return page_index, chinese
                 else:
-                    print(f'第 {page_index + 1} 页翻译失败 (第 {attempt + 1} 次尝试)')
+                    logger.warning(f'{chunk_tag} 翻译失败 (第 {attempt + 1} 次尝试)')
                     
             except Exception as e:
-                print(f'第 {page_index + 1} 页翻译异常 (第 {attempt + 1} 次尝试): {e}')
+                logger.error(f'{chunk_tag} 翻译异常 (第 {attempt + 1} 次尝试): {e}')
         
-        print(f'第 {page_index + 1} 页翻译最终失败，已重试 {self.config.max_retries} 次')
+        logger.error(f'{chunk_tag} 翻译最终失败，已重试 {self.config.max_retries} 次')
         return page_index, None
 
     def translate_text(self, page_list):
@@ -614,7 +625,9 @@ class Translate:
         多线程翻译文本
         page_list: 页面内容列表
         """
-        print(f'开始多线程翻译，共 {len(page_list)} 页，使用 {self.config.max_workers} 个线程')
+        self.total_chunks = len(page_list)
+        self.translate_start_time = time.time()
+        logger.info(f'开始多线程翻译，共 {self.total_chunks} 个 chunk，使用 {self.config.max_workers} 个线程')
         
         # 准备页面数据 (索引, 内容)
         page_data_list = [(i, page) for i, page in enumerate(page_list)]
@@ -646,18 +659,24 @@ class Translate:
                     if translated_text is None:
                         failed_pages.append(page_index + 1)
                     
-                    print(f'进度: {completed_count}/{len(page_list)} 页完成')
+                    # 改进进度显示：百分比、已用时间、预估剩余时间
+                    total = len(page_list)
+                    elapsed = time.time() - self.translate_start_time
+                    percent = completed_count / total * 100
+                    avg_time = elapsed / completed_count if completed_count > 0 else 0
+                    eta = avg_time * (total - completed_count)
+                    logger.info(f'进度: {percent:.1f}% ({completed_count}/{total}) | 已用: {elapsed:.0f}s | 预估剩余: {eta:.0f}s')
                     
                 except Exception as e:
-                    print(f'第 {page_index + 1} 页处理异常: {e}')
+                    logger.error(f'[Chunk {page_index + 1}/{len(page_list)}] 处理异常: {e}')
                     failed_pages.append(page_index + 1)
                     completed_count += 1
         
-        # 检查是否有失败的页面
+        # 检查是否有失败的 chunk
         if failed_pages:
-            print(f'以下页面翻译失败: {failed_pages}')
-            print(f'成功翻译: {len(page_list) - len(failed_pages)} 页')
-            print(f'失败页面: {len(failed_pages)} 页')
+            logger.warning(f'以下 chunk 翻译失败: {failed_pages}')
+            logger.info(f'成功翻译: {len(page_list) - len(failed_pages)} 个 chunk')
+            logger.warning(f'失败 chunk: {len(failed_pages)} 个')
             
             # # 询问是否继续处理成功的页面
             # user_input = input('是否继续处理成功翻译的页面？(y/n): ').lower().strip()
@@ -672,29 +691,29 @@ class Translate:
             if translated_text:
                 text += f'{translated_text}\n'
         
-        print(f'全部翻译完成，共 {len(page_list)} 页')
+        logger.info(f'全部翻译完成，共 {len(page_list)} 个 chunk')
         return text
 
     def run(self):
         """
         启动入口
         """
-        print(f'开始翻译任务，使用 {self.config.max_workers} 个线程')
+        logger.info(f'开始翻译任务: {self.file_path}，使用 {self.config.max_workers} 个线程')
         start_time = time.time()
         
         page_list = self.extract_text()
         if not page_list:
-            print('抽取文本失败')
+            logger.error('抽取文本失败')
             return False
         
         translated_text = self.translate_text(page_list)
         if translated_text:
             self.save_text_to_file(translated_text)
             end_time = time.time()
-            print(f'翻译任务完成，总耗时: {end_time - start_time:.2f} 秒')
+            logger.info(f'翻译任务完成，总耗时: {end_time - start_time:.2f} 秒')
             return True
         else:
-            print('翻译失败')
+            logger.error('翻译失败')
             return False
 
 if __name__ == '__main__':
