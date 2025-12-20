@@ -51,30 +51,54 @@ logging.basicConfig(
 logger = logging.getLogger('Translator')
 
 # 使用akashml API https://playground.akashml.com/
-client = OpenAI(
-    api_key=os.environ.get('AKASHML_API_KEY'),
-    base_url="https://api.akashml.com/v1"
+def get_api_client():
+    """获取 API 客户端，包含 API Key 验证"""
+    api_key = os.environ.get('AKASHML_API_KEY')
+    if not api_key:
+        raise ValueError(
+            "未设置 AKASHML_API_KEY 环境变量。\n"
+            "请使用以下命令设置：export AKASHML_API_KEY='your-api-key'"
+        )
+    return OpenAI(
+        api_key=api_key,
+        base_url="https://api.akashml.com/v1"
     )
+
+# 延迟初始化客户端
+client = None
 
 class PDF(FPDF):
     def __init__(self):
         super().__init__()
+        self.font_loaded = False
         # 添加中文字体
         try:
-            self.add_font('kaiti', '', './kaiti.ttf')
+            # 尝试多个可能的字体路径
+            font_paths = [
+                './kaiti.ttf',
+                os.path.join(os.path.dirname(__file__), 'kaiti.ttf'),
+                '/usr/share/fonts/truetype/kaiti.ttf',
+            ]
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    self.add_font('kaiti', '', font_path)
+                    self.font_loaded = True
+                    logger.debug(f"[PDF] 字体加载成功: {font_path}")
+                    break
+            
+            if not self.font_loaded:
+                logger.warning("[PDF] 未找到中文字体文件，PDF输出可能无法正确显示中文")
         except Exception as e:
             logger.warning(f"[PDF] 字体加载失败: {e}")
-            # 如果字体加载失败，使用默认字体
-            try:
-                self.add_font('kaiti', '', 'DejaVu')
-            except:
-                # 如果DejaVu也失败，使用系统默认字体
-                pass
 
     def footer(self):
         self.set_y(-15)
-        self.set_font('kaiti', '', 8)  # 设置中文字体
-        self.cell(0, 10, f'第 {self.page_no()} 页', 0, new_x='LMARGIN', new_y='NEXT', align='C')  # 页脚
+        if self.font_loaded:
+            self.set_font('kaiti', '', 8)  # 设置中文字体
+            self.cell(0, 10, f'第 {self.page_no()} 页', 0, new_x='LMARGIN', new_y='NEXT', align='C')
+        else:
+            self.set_font('Helvetica', '', 8)  # 使用默认字体
+            self.cell(0, 10, f'Page {self.page_no()}', 0, new_x='LMARGIN', new_y='NEXT', align='C')
 
 class TranslateConfig:
     """
@@ -115,10 +139,12 @@ class Translate:
             os.mkdir(directory)
         # 需要翻译的文件
         self.file_path = directory + source_file
+        # 获取不带扩展名的文件名（正确处理多点号文件名）
+        base_name = os.path.splitext(source_file)[0]
         # 翻译结果输出为txt文件
-        self.output_txt = f"{directory}{source_file.split('.')[0]} translated.txt"
+        self.output_txt = f"{directory}{base_name} translated.txt"
         # 翻译结果输出为PDF文件
-        self.output_pdf = f"{directory}{source_file.split('.')[0]} translated.pdf"
+        self.output_pdf = f"{directory}{base_name} translated.pdf"
 
     def extract_text_from_pdf(self, interupt=None):
         """
@@ -126,7 +152,6 @@ class Translate:
         interupt：上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
         """
         reader = PdfReader(self.file_path)
-        total_pages = len(reader.pages)
         num = 0
         content = []
         for page in reader.pages:
@@ -136,9 +161,6 @@ class Translate:
                 if num < interupt:
                     continue
             logger.debug(f'[提取][PDF] 处理第 {num} 页')
-            # 每10页或每50页打印一次INFO级别进度日志
-            if num % 50 == 0 or num == total_pages:
-                logger.info(f'[提取][PDF] 进度: {num}/{total_pages} 页 ({num/total_pages*100:.1f}%)')
             page_text = page.extract_text()
             page_text = page_text.strip()
             if not page_text:
@@ -315,7 +337,9 @@ class Translate:
                             logger.error(f'[提取][EPUB] 处理第 {num} 项时出错: {e3}')
                             content.append(f"[处理出错: {e3}]")
                     logger.info(f'[提取][EPUB] 完成，有效内容: {len(content)} 项，过滤空白: {blank_count} 项')
-                    return content
+                    # 重构分页标准（与正常流程保持一致）
+                    full_content = '\n'.join(content)
+                    return self.split_full_content_to_pages(full_content)
         
         # 先收集所有需要处理的 HTML/XHTML 内容
         html_items = []
@@ -525,11 +549,6 @@ class Translate:
             else:
                 page_list.append(last_chunk)
         
-        # 添加切割统计日志
-        original_length = len(content)
-        avg_chunk_size = sum(len(chunk) for chunk in page_list) / len(page_list) if page_list else 0
-        logger.debug(f'[切割] 原文长度: {original_length} 字符, 切割后: {len(page_list)} 个chunk, 平均chunk大小: {avg_chunk_size:.0f} 字符')
-        
         return page_list
 
     def extract_text_from_txt(self):
@@ -543,12 +562,17 @@ class Translate:
         page_list = self.split_full_content_to_pages(content)
         return page_list
 
-    def translate(self, text_origin, chunk_info=None):
+    def translate(self, text_origin):
         """
         向API发起翻译请求
-        chunk_info: 可选的chunk信息，格式为 (chunk_index, total_chunks)，用于错误日志
         """
+        global client
+        
         try:
+            # 延迟初始化客户端
+            if client is None:
+                client = get_api_client()
+            
             # 仅在启用时打印内容预览（隐私保护）
             if LOG_SHOW_CONTENT:
                 preview = text_origin[:100] + '...' if len(text_origin) > 100 else text_origin
@@ -564,30 +588,37 @@ class Translate:
                 timeout=self.config.api_timeout
             )
             return response.choices[0].message.content
-        except:
-            chunk_context = f'[Chunk {chunk_info[0]+1}/{chunk_info[1]}] ' if chunk_info else ''
-            logger.error(f'[翻译] {chunk_context}API异常: {format_exc()}')
-            return
+        except ValueError as e:
+            # API Key 配置错误
+            logger.error(f'[翻译] 配置错误: {e}')
+            raise  # 重新抛出，终止程序
+        except TimeoutError:
+            logger.error('[翻译] API请求超时')
+            return None
+        except Exception as e:
+            logger.error(f'[翻译] API异常: {type(e).__name__}: {e}')
+            return None
 
     def save_text_to_file(self, text):
         """
         保存翻译后的内容为 txt
         """
-        logger.info(f'[保存] 开始保存到: {self.output_txt} ({len(text)} 字符)')
         # 保存为txt
         with open(self.output_txt, 'w', encoding='utf-8')as f:
             f.write(text)
+        # 合并冗余日志：保存开始和完成合并为一条
         logger.info(f'[保存] 完成: {self.output_txt}')
 
     def extract_text(self):
         """
         抽取文本
         """
-        if '.pdf' in self.file_path:
+        file_lower = self.file_path.lower()
+        if file_lower.endswith('.pdf'):
             return self.extract_text_from_pdf()
-        elif '.epub' in self.file_path:
+        elif file_lower.endswith('.epub'):
             return self.extract_text_from_epub()
-        elif '.txt' in self.file_path:
+        elif file_lower.endswith('.txt'):
             return self.extract_text_from_txt()
         else:
             logger.error(f'[提取] 不支持的文件类型: {self.file_path}')
@@ -601,7 +632,6 @@ class Translate:
         page_index, page_content = page_data
         total = getattr(self, 'total_chunks', '?')
         chunk_tag = f'[翻译][Chunk {page_index + 1}/{total}]'
-        chunk_info = (page_index, total)
         
         for attempt in range(self.config.max_retries + 1):
             try:
@@ -611,7 +641,7 @@ class Translate:
                 else:
                     logger.debug(f'{chunk_tag} 开始 ({len(page_content)} 字符)')
                 
-                chinese = self.translate(page_content, chunk_info=chunk_info)
+                chinese = self.translate(page_content)
                 if chinese:
                     # 合并冗余日志：翻译结果和完成合并为一条
                     if LOG_SHOW_CONTENT:
@@ -619,7 +649,7 @@ class Translate:
                         logger.debug(f'{chunk_tag} 完成，译文预览: {result_preview}')
                     else:
                         logger.debug(f'{chunk_tag} 完成')
-                    return page_index, chinese, attempt  # 返回重试次数
+                    return page_index, chinese
                 else:
                     logger.warning(f'{chunk_tag} 失败 (第 {attempt + 1} 次)')
                     
@@ -627,7 +657,7 @@ class Translate:
                 logger.error(f'{chunk_tag} 异常 (第 {attempt + 1} 次): {e}')
         
         logger.error(f'{chunk_tag} 最终失败，已重试 {self.config.max_retries} 次')
-        return page_index, None, self.config.max_retries  # 返回最大重试次数
+        return page_index, None
 
     def translate_text(self, page_list):
         """
@@ -646,9 +676,6 @@ class Translate:
         results = [None] * len(page_list)
         self.text_list = [None] * len(page_list)
         
-        # 重试统计
-        total_retries = 0
-        
         # 使用线程池进行翻译
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             # 提交所有翻译任务
@@ -664,15 +691,10 @@ class Translate:
             for future in as_completed(future_to_page):
                 page_index = future_to_page[future]
                 try:
-                    result = future.result()
-                    page_index, translated_text, retry_count = result
+                    page_index, translated_text = future.result()
                     results[page_index] = translated_text
                     self.text_list[page_index] = translated_text
                     completed_count += 1
-                    
-                    # 累计重试次数
-                    if retry_count > 0:
-                        total_retries += retry_count
                     
                     if translated_text is None:
                         failed_pages.append(page_index + 1)
@@ -688,9 +710,8 @@ class Translate:
                     if should_log:
                         elapsed = time.time() - self.translate_start_time
                         avg_time = elapsed / completed_count if completed_count > 0 else 0
-                        avg_speed = completed_count / elapsed if elapsed > 0 else 0  # chunk/s
                         eta = avg_time * (total - completed_count)
-                        logger.info(f'[进度] {percent:.0f}% ({completed_count}/{total}) | 已用: {elapsed:.0f}s | 剩余: {eta:.0f}s | 速度: {avg_speed:.2f} chunk/s')
+                        logger.info(f'[进度] {percent:.0f}% ({completed_count}/{total}) | 已用: {elapsed:.0f}s | 剩余: {eta:.0f}s')
                         self._last_progress_percent = percent
                     
                 except Exception as e:
@@ -699,13 +720,8 @@ class Translate:
                     completed_count += 1
         
         # 检查是否有失败的 chunk（合并冗余日志为一条）
-        success_count = len(page_list) - len(failed_pages)
         if failed_pages:
-            logger.warning(f'[翻译] 翻译结果: 成功={success_count}, 失败={len(failed_pages)}, 失败列表={failed_pages}')
-        
-        # 添加重试统计
-        if total_retries > 0:
-            logger.info(f'[翻译] 重试统计: 总重试次数={total_retries}, 平均每个chunk重试={total_retries/len(page_list):.2f}次')
+            logger.warning(f'[翻译] 翻译结果: 成功={len(page_list) - len(failed_pages)}, 失败={len(failed_pages)}, 失败列表={failed_pages}')
         
         # 按顺序组合翻译结果
         text = ""
@@ -737,6 +753,18 @@ class Translate:
         logger.info(f'[提取] 完成，共 {len(page_list)} 个chunk，{total_chars} 字符')
         
         translated_text = self.translate_text(page_list)
+        
+        # 检查翻译结果是否有效
+        if not translated_text or not translated_text.strip():
+            logger.error('[任务] 翻译结果为空，不会覆盖现有文件')
+            return False
+        
+        # 检查成功翻译的 chunk 数量
+        success_count = sum(1 for t in self.text_list if t is not None)
+        if success_count == 0:
+            logger.error('[任务] 所有 chunk 翻译失败，不会保存文件')
+            return False
+        
         if translated_text:
             self.save_text_to_file(translated_text)
             end_time = time.time()
