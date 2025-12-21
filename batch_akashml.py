@@ -27,13 +27,11 @@ def batch_translate():
     #  model="Qwen/Qwen3-30B-A3B", 上下文限制为32K
     #  无法达到理论值，尚未达到理论值就会出现该问题：2025-12-20 20:15:48,362 - httpx - INFO - HTTP Request: POST https://api.akashml.com/v1/chat/completions "HTTP/1.1 502 Bad Gateway"
     config = TranslateConfig(
-        max_workers=5,       # 最大线程数，建议5-6个
+        max_workers=9,       # 最大线程数，建议5-6个
         max_retries=6,        # 最大重试次数
         retry_delay=120,       # 重试延迟时间(秒)
-        # chunk_size=20000,      # 文本切割阈值（字符数），默认8000
-        # min_chunk_size=1000,   # 最小切割长度（字符数），默认500
-        chunk_size=4000,      # 文本切割阈值（字符数），默认8000
-        min_chunk_size=2000,   # 最小切割长度（字符数），默认500
+        chunk_size=3000,      # 文本切割阈值（字符数），默认8000
+        min_chunk_size=1000,   # 最小切割长度（字符数），默认500
         api_timeout=60        # API 超时时间(秒)
     )
     
