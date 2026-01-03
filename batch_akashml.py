@@ -10,6 +10,9 @@ logging.basicConfig(
 logger = logging.getLogger('Translation Batch')
 
 from akashml import TranslateConfig, Translate
+from PyPDF2 import PdfReader
+from ebooklib import epub
+from bs4 import BeautifulSoup
 
 def safe_delete(file_path: Path):
     """安全删除文件，捕获异常并记录"""
@@ -18,6 +21,59 @@ def safe_delete(file_path: Path):
         logger.info(f"已删除: {file_path.name}")
     except Exception as e:
         logger.error(f"删除失败 {file_path.name}: {e}")
+
+def count_file_characters(file_path: Path):
+    """
+    统计文件中的文本字符数
+    支持 txt、pdf、epub 三种文件类型
+    返回字符数，如果读取失败返回 -1
+    """
+    file_ext = file_path.suffix.lower()
+    
+    try:
+        if file_ext == '.txt':
+            # 读取txt文件
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+            return len(content)
+        
+        elif file_ext == '.pdf':
+            # 读取PDF文件
+            reader = PdfReader(file_path)
+            total_chars = 0
+            for page in reader.pages:
+                page_text = page.extract_text().strip()
+                if page_text:
+                    total_chars += len(page_text)
+            return total_chars
+        
+        elif file_ext == '.epub':
+            # 读取EPUB文件
+            book = epub.read_epub(str(file_path), options={"ignore_ncx": True})
+            total_chars = 0
+            for item in book.get_items():
+                # 只处理HTML/XHTML内容
+                if item.media_type in ['application/xhtml+xml', 'application/xhtml', 'text/html', 'text/xhtml']:
+                    try:
+                        soup = BeautifulSoup(item.get_content(), 'html.parser')
+                        # 移除script和style标签
+                        for script in soup(["script", "style"]):
+                            script.decompose()
+                        page_text = soup.get_text().strip()
+                        if page_text:
+                            total_chars += len(page_text)
+                    except Exception as e:
+                        logger.debug(f"读取EPUB项失败: {e}")
+                        continue
+            return total_chars
+        
+        else:
+            logger.warning(f"不支持的文件类型: {file_ext}")
+            return -1
+            
+    except Exception as e:
+        logger.error(f"读取文件字符数失败 {file_path.name}: {e}")
+        return -1
 
 def batch_translate():
     """
@@ -56,6 +112,13 @@ def batch_translate():
         # 如果文件本身是以 translated.txt 结尾，则跳过
         if file_name.endswith("translated.txt"):
             logger.info(f"跳过已翻译文件: {file_name}")
+            continue
+        
+        # 检查文件字符数，如果小于1000则跳过并删除
+        char_count = count_file_characters(file_path)
+        if char_count >= 0 and char_count < 1000:
+            logger.info(f"跳过文件（字符数 {char_count} < 1000）: {file_name}")
+            safe_delete(file_path)
             continue
         
         # 检查翻译结果文件是否存在
