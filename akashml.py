@@ -31,7 +31,7 @@ import time
 import re
 import logging
 from traceback import format_exc
-from openai import OpenAI, APITimeoutError
+from openai import OpenAI, APITimeoutError, APIError
 from PyPDF2 import PdfReader
 from fpdf import FPDF
 from ebooklib import epub
@@ -49,6 +49,15 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger('Translator')
+
+# 配置 OpenAI SDK 的日志，显示详细的重试原因
+# openai._base_client 负责重试逻辑，设置为 DEBUG 可以看到重试的详细原因
+openai_logger = logging.getLogger('openai._base_client')
+openai_logger.setLevel(logging.DEBUG)
+
+# 如果需要看到 HTTP 请求的详细信息，也可以启用 httpx 的日志
+# httpx_logger = logging.getLogger('httpx')
+# httpx_logger.setLevel(logging.DEBUG)
 
 # 使用akashml API https://playground.akashml.com/
 def get_api_client():
@@ -610,16 +619,32 @@ class Translate:
             # API Key 配置错误
             logger.error(f'[翻译] 配置错误: {e}')
             raise  # 重新抛出，终止程序
-        except APITimeoutError:
+        except APITimeoutError as e:
             # OpenAI 库的超时异常
-            logger.error('[翻译] API请求超时')
+            logger.error(f'[翻译] API请求超时: {e}')
             return None
-        except TimeoutError:
+        except TimeoutError as e:
             # 标准超时异常（后备）
-            logger.error('[翻译] API请求超时')
+            logger.error(f'[翻译] API请求超时: {e}')
+            return None
+        except APIError as e:
+            # OpenAI API 错误，包含 HTTP 状态码等信息
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            error_message = str(e)
+            if status_code:
+                logger.error(f'[翻译] API错误 (状态码 {status_code}): {error_message}')
+            else:
+                logger.error(f'[翻译] API错误: {error_message}')
             return None
         except Exception as e:
-            logger.error(f'[翻译] API异常: {type(e).__name__}: {e}')
+            # 其他异常，记录详细信息
+            error_type = type(e).__name__
+            error_message = str(e)
+            # 尝试获取更多异常信息
+            error_detail = error_message
+            if hasattr(e, '__cause__') and e.__cause__:
+                error_detail += f" (原因: {e.__cause__})"
+            logger.error(f'[翻译] API异常 ({error_type}): {error_detail}')
             return None
 
     def save_text_to_file(self, text):
