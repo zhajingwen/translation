@@ -53,11 +53,11 @@ logger = logging.getLogger('Translator')
 # 配置 OpenAI SDK 的日志，显示详细的重试原因
 # openai._base_client 负责重试逻辑，设置为 DEBUG 可以看到重试的详细原因
 openai_logger = logging.getLogger('openai._base_client')
-openai_logger.setLevel(logging.DEBUG)
+openai_logger.setLevel(logging.INFO)
 
-# 如果需要看到 HTTP 请求的详细信息，也可以启用 httpx 的日志
-# httpx_logger = logging.getLogger('httpx')
-# httpx_logger.setLevel(logging.DEBUG)
+# httpx 设置为 WARNING，只显示错误信息（如 502 Bad Gateway）
+httpx_logger = logging.getLogger('httpx')
+httpx_logger.setLevel(logging.WARNING)
 
 # 使用akashml API https://playground.akashml.com/
 def get_api_client():
