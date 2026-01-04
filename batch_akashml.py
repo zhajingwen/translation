@@ -1,5 +1,6 @@
 import logging
 import sys
+import time
 from pathlib import Path
 
 # ================== 日志配置 ==================
@@ -104,20 +105,26 @@ def batch_translate():
         print("等待翻译的文件（txt/pdf/epub），退出。")
         return
     
-    processed = 0
+    # 筛选出需要处理的文件（排除已翻译的、字符数不足的）
+    files_to_process = []
+    skipped_already_translated = 0  # 跳过：文件名本身是翻译结果
+    skipped_char_too_few = 0  # 跳过并删除：字符数不足
+    skipped_result_exists = 0  # 跳过并删除：已存在翻译结果
+    
     for file_path in all_files:
-        file_ext = file_path.suffix.lower()
         file_name = file_path.name
         
         # 如果文件本身是以 translated.txt 结尾，则跳过
         if file_name.endswith("translated.txt"):
-            logger.info(f"跳过已翻译文件: {file_name}")
+            skipped_already_translated += 1
+            logger.debug(f"[预处理] 跳过已翻译文件: {file_name}")
             continue
         
         # 检查文件字符数，如果小于1000则跳过并删除
         char_count = count_file_characters(file_path)
         if char_count >= 0 and char_count < 1000:
-            logger.info(f"跳过文件（字符数 {char_count} < 1000）: {file_name}")
+            skipped_char_too_few += 1
+            logger.info(f"[预处理] 删除文件（字符数 {char_count} < 1000）: {file_name}")
             safe_delete(file_path)
             continue
         
@@ -127,29 +134,110 @@ def batch_translate():
         
         # 如果有翻译结果了，那么就跳过
         if translated_path.exists():
-            print(f"跳过: {file_name} 已存在翻译结果")
-            # 删除原始文件
+            skipped_result_exists += 1
+            logger.info(f"[预处理] 删除文件（已存在翻译结果）: {file_name}")
             safe_delete(file_path)
-            logger.info(f'删除成功：{file_name}')
             continue
+        
+        files_to_process.append(file_path)
+    
+    skipped_pre_count = skipped_already_translated + skipped_char_too_few + skipped_result_exists
+    
+    if not files_to_process:
+        logger.info(f"没有需要处理的文件（预处理跳过 {skipped_pre_count} 个文件）")
+        return
+    
+    # 初始化进度统计变量
+    total_files = len(files_to_process)
+    current_index = 0
+    success_count = 0
+    failed_count = 0
+    skipped_count = skipped_pre_count
+    start_time = time.time()
+    
+    # 记录任务开始信息
+    logger.info('=' * 60)
+    logger.info('[任务] 批量翻译任务开始')
+    logger.info(f'[任务] 总文件数: {total_files}')
+    logger.info(f'[任务] 配置: 线程数={config.max_workers}, 重试次数={config.max_retries}, '
+                f'重试延迟={config.retry_delay}秒, chunk大小={config.chunk_size}, '
+                f'最小chunk={config.min_chunk_size}, 超时={config.api_timeout}秒')
+    if skipped_pre_count > 0:
+        logger.info(f'[任务] 预处理统计:')
+        if skipped_already_translated > 0:
+            logger.info(f'  - 跳过已翻译文件: {skipped_already_translated} 个')
+        if skipped_char_too_few > 0:
+            logger.info(f'  - 删除字符数不足文件: {skipped_char_too_few} 个（字符数 < 1000）')
+        if skipped_result_exists > 0:
+            logger.info(f'  - 删除已存在翻译结果的文件: {skipped_result_exists} 个')
+        logger.info(f'  - 预处理跳过总计: {skipped_pre_count} 个文件')
+    logger.info('=' * 60)
+    
+    # 处理每个文件
+    for file_path in files_to_process:
+        current_index += 1
+        file_ext = file_path.suffix.lower()
+        file_name = file_path.name
+        
+        # 计算进度百分比
+        progress_percent = (current_index / total_files) * 100
+        
+        # 打印当前进度
+        logger.info(f'[进度] 处理第 {current_index}/{total_files} 个文件 ({progress_percent:.1f}%)：{file_name}')
         
         try:
             # 启动翻译任务
             logger.info(f'开始翻译：{file_name} (类型: {file_ext})')
             result = Translate(file_name, config).run()
             if not result:
-                print(f"翻译失败: {file_name}")
+                failed_count += 1
+                logger.error(f"翻译失败: {file_name}")
+                # 打印当前统计
+                remaining = total_files - current_index
+                logger.info(f'[统计] 成功: {success_count}, 失败: {failed_count}, 跳过: {skipped_count}, 剩余: {remaining}')
                 continue
-            processed += 1
+            
+            success_count += 1
             logger.info(f'翻译成功：{file_name}')
             # 删除原始文件
             safe_delete(file_path)
             logger.info(f'删除成功：{file_name}')
-            logger.info(f'翻译成功结束：{file_name}')
+            
+            # 打印当前统计
+            remaining = total_files - current_index
+            logger.info(f'[统计] 成功: {success_count}, 失败: {failed_count}, 跳过: {skipped_count}, 剩余: {remaining}')
 
         except Exception as e:
+            failed_count += 1
             print(f"错误翻译 {file_name}: {e}", file=sys.stderr)
             logger.error(f"处理失败: {file_name} - {e}")
+            # 打印当前统计
+            remaining = total_files - current_index
+            logger.info(f'[统计] 成功: {success_count}, 失败: {failed_count}, 跳过: {skipped_count}, 剩余: {remaining}')
+    
+    # 计算总耗时
+    end_time = time.time()
+    total_duration = end_time - start_time
+    
+    # 打印最终统计
+    logger.info('=' * 60)
+    logger.info('[任务] 批量翻译任务完成')
+    logger.info(f'[统计] 总耗时: {total_duration:.1f} 秒 ({total_duration/60:.1f} 分钟)')
+    logger.info(f'[统计] 总文件数: {total_files}')
+    logger.info(f'[统计] 成功: {success_count} ({success_count/total_files*100:.1f}%)')
+    logger.info(f'[统计] 失败: {failed_count} ({failed_count/total_files*100:.1f}%)')
+    if skipped_count > 0:
+        logger.info(f'[统计] 预处理跳过: {skipped_count} 个文件')
+        if skipped_already_translated > 0:
+            logger.info(f'  - 跳过已翻译文件: {skipped_already_translated} 个')
+        if skipped_char_too_few > 0:
+            logger.info(f'  - 删除字符数不足文件: {skipped_char_too_few} 个（字符数 < 1000）')
+        if skipped_result_exists > 0:
+            logger.info(f'  - 删除已存在翻译结果的文件: {skipped_result_exists} 个')
+    if success_count > 0:
+        avg_time = total_duration / success_count
+        logger.info(f'[统计] 平均处理时间: {avg_time:.1f} 秒/文件')
+    logger.info('=' * 60)
 
 
 if __name__ == '__main__':
