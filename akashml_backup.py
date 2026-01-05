@@ -586,9 +586,9 @@ if __name__ == '__main__':
     
     # 可以根据API限制和网络情况调整参数
     config = TranslateConfig(
-        max_workers=10,      # 最大线程数，建议3-10个
+        max_workers=9,      # 最大线程数，建议3-10个
         max_retries=5,      # 最大重试次数
-        retry_delay=10       # 重试延迟时间(秒)
+        retry_delay=70       # 重试延迟时间(秒)
     )
     
     # 启动翻译任务
