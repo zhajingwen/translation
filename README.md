@@ -21,7 +21,6 @@ uv sync
 **获取API密钥：**
 - **DeepSeek API**（推荐）：访问 [DeepSeek平台](https://platform.deepseek.com) 注册账号并获取API密钥
 - **AkashML API**：访问 [AkashML平台](https://playground.akashml.com/) 注册账号并获取API密钥
-- **OpenAI API**：访问 [OpenAI平台](https://platform.openai.com) 注册账号并获取API密钥
 
 **设置环境变量：**
 ```bash
@@ -30,9 +29,6 @@ export DEEPSEEK_API_KEY="your-deepseek-api-key"
 
 # 或使用 AkashML API
 export AKASHML_API_KEY="your-akashml-api-key"
-
-# 或使用 OpenAI API
-export OPENAI_API_KEY="your-openai-api-key"
 ```
 
 **提示：** 如果不想每次设置环境变量，可以将密钥添加到 `~/.bashrc` 或 `~/.zshrc` 文件中（macOS/Linux），或使用 `.env` 文件（需要额外配置）。
@@ -67,8 +63,8 @@ python batch_akashml.py
 1. **选择翻译方式**：
    - 🏆 **推荐**：DeepSeek多线程（性价比最高，每100页约2毛钱）
    - 🚀 **备选**：AkashML多线程（使用Qwen3-30B模型，仅生成TXT）
-   - 💰 **省钱**：OpenAI批处理（最便宜，但需等待24小时）
-   - ⚡ **快速**：DeepSeek多线程（实时反馈，速度快）
+   - 📦 **批量**：批量翻译脚本（自动处理大量文件）
+   - 🔗 **合并**：文档合并工具（智能整理小文件）
    - 🔒 **隐私**：本地Ollama（完全免费，但需要本地资源）
 
 2. **配置参数**：
@@ -84,11 +80,12 @@ python batch_akashml.py
 ## 功能特性
 
 - 📚 支持PDF、EPUB、TXT格式的文档翻译
-- 🚀 多种翻译方式：DeepSeek多线程（推荐）、AkashML多线程、DeepSeek批量翻译、OpenAI GPT-4o-mini、OpenAI批处理模式、本地Ollama模型
-- 💰 成本优化：批处理模式可节省50%费用，DeepSeek最经济（每100页约2毛钱）
+- 🚀 多种翻译方式：DeepSeek多线程（推荐）、AkashML多线程、DeepSeek批量翻译、本地Ollama模型
+- 💰 成本优化：DeepSeek最经济（每100页约2毛钱）
 - 🔄 自动重试机制：提高翻译成功率，支持自定义重试次数和延迟
 - ⚡ 多线程并行：DeepSeek和AkashML版本支持多线程并发翻译，大幅提升速度
 - 📦 批量处理：支持自动批量翻译files目录下的所有txt/pdf/epub文件，翻译完成后自动清理
+- 🔗 文档合并：智能合并小型翻译文件，自动备份和清理
 - 📄 多格式输出：同时生成TXT和PDF格式的翻译结果（deepseek_nopdf.py和akashml.py仅生成TXT）
 - 🎨 中文排版：使用楷体字体，支持中文PDF生成
 
@@ -96,26 +93,27 @@ python batch_akashml.py
 
 ```
 translation/
-├── deepseek.py            # DeepSeek 多线程翻译（生成PDF+TXT）
-├── deepseek_nopdf.py     # DeepSeek 多线程翻译（仅生成TXT，不生成PDF）
-├── batch_deepseek.py     # DeepSeek 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
-├── akashml.py            # AkashML 多线程翻译（仅生成TXT，使用Qwen3-30B模型）
-├── batch_akashml.py      # AkashML 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
-├── chatgpt_translate.py   # OpenAI GPT-4o-mini 实时翻译
-├── chatgpt_batch.py       # OpenAI 批处理翻译
-├── ollama_local_qwen2.py  # 本地Ollama模型翻译
-├── requirements.txt       # 项目依赖
-├── pyproject.toml         # 项目配置
-├── uv.lock               # 依赖锁定文件
-├── kaiti.ttf             # 中文字体文件
-├── kaiti.pkl             # 字体缓存文件
-├── kaiti.cw127.pkl       # 字体缓存文件
-├── files/                 # 翻译文件存储目录
-│   ├── *.pdf             # 待翻译的文件
-│   ├── *.epub            # 待翻译的文件
-│   ├── *.txt             # 待翻译的文件
-│   └── * translated.txt  # 翻译结果（TXT格式）
-└── README.md             # 项目说明文档
+├── deepseek.py                 # DeepSeek 多线程翻译（生成PDF+TXT）
+├── deepseek_nopdf.py          # DeepSeek 多线程翻译（仅生成TXT，不生成PDF）
+├── batch_deepseek.py          # DeepSeek 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
+├── akashml.py                 # AkashML 多线程翻译（仅生成TXT，使用Qwen3-30B模型）
+├── batch_akashml.py           # AkashML 批量翻译脚本（自动处理files目录下所有txt/pdf/epub文件）
+├── merge_translated_files.py  # 文档合并脚本（智能合并小型翻译文件）
+├── ollama_local_qwen2.py      # 本地Ollama模型翻译
+├── requirements.txt           # 项目依赖
+├── pyproject.toml             # 项目配置
+├── uv.lock                    # 依赖锁定文件
+├── kaiti.ttf                  # 中文字体文件
+├── kaiti.pkl                  # 字体缓存文件
+├── kaiti.cw127.pkl            # 字体缓存文件
+├── files/                      # 翻译文件存储目录
+│   ├── *.pdf                  # 待翻译的文件
+│   ├── *.epub                 # 待翻译的文件
+│   ├── *.txt                  # 待翻译的文件
+│   ├── * translated.txt       # 翻译结果（TXT格式）
+│   ├── .backup/               # 备份目录（合并脚本自动创建）
+│   └── combined/              # 合并文件输出目录
+└── README.md                  # 项目说明文档
 ```
 
 ## 安装依赖
@@ -315,60 +313,70 @@ set DEEPSEEK_API_KEY=your-api-key
 - ⚠️ 如果翻译过程中有页面失败，程序会询问是否继续处理成功的页面
 - ⚠️ 批量翻译支持txt、pdf、epub三种格式混合处理
 
-### 2. OpenAI 批处理翻译
+### 2. 文档合并工具 🔗
 
-**优势：**
-- 💰 成本最低（比实时翻译便宜50%）
-- 📦 适合大批量翻译
-- 🔄 自动重试机制
-- ⏱️ 最长24小时处理窗口
+**功能：**
+- 📊 智能扫描和筛选小型翻译文件（<10万字）
+- 🔗 自动合并文件（每个合并文件不超过20万字）
+- 🗂️ 按文件名自然排序合并
+- 💾 自动备份原文件到 `.backup` 目录
+- 🗑️ 可选自动删除原文件
+- 📁 输出到 `files/combined/` 目录
 
-**使用方法：**
-1. 打开 `chatgpt_batch.py` 文件
-2. 修改文件路径和批处理任务ID：
-   ```python
-   source_file = "your_book.pdf"  # 或 "your_book.epub"
-   batch_job_id = None  # 首次运行设为None，续传时填入任务ID
-   ```
-3. 运行：
-   ```bash
-   python chatgpt_batch.py
-   ```
-
-**环境变量设置：**
-```bash
-export OPENAI_API_KEY="your-api-key"
-```
-
-**流程说明：**
-1. 首次运行：`batch_job_id = None`，系统会创建批处理任务并返回任务ID
-2. 续传运行：将上次返回的任务ID填入，继续获取翻译结果
-3. ⏱️ 批处理任务可能需要最多24小时完成，请耐心等待
-
-### 3. OpenAI 实时翻译
-
-**优势：**
-- ⚡ 实时反馈，立即看到翻译结果
-- 🎯 适合小文件或测试
-- 🔍 可以逐页查看翻译效果
+**使用场景：**
+- 将大量小文件合并成少量大文件，便于阅读和管理
+- 过滤掉中文字数过少的垃圾文件
+- 整理批量翻译后的碎片化文件
 
 **使用方法：**
-1. 打开 `chatgpt_translate.py` 文件
-2. 修改文件路径：
+
+1. 打开 `merge_translated_files.py` 文件
+2. 调整配置（第399-403行）：
    ```python
-   source_origin_book_name = "your_book.pdf"  # 或 "your_book.epub"
-   ```
-3. 运行：
-   ```bash
-   python chatgpt_translate.py
+   main(
+       files_dir="files",          # 输入文件目录
+       delete_originals=True,      # 是否删除原文件（True/False）
+       backup=True                 # 是否备份原文件（True/False）
+   )
    ```
 
-**环境变量设置：**
-```bash
-export OPENAI_API_KEY="your-api-key"
+3. 运行合并脚本：
+   ```bash
+   python merge_translated_files.py
+   ```
+
+**配置参数说明：**
+
+| 参数 | 说明 | 默认值 | 注意事项 |
+|------|------|--------|----------|
+| `files_dir` | 输入文件目录 | `"files"` | 扫描此目录下的所有 `*translated.txt` 文件 |
+| `delete_originals` | 是否删除原文件 | `False` | 设为 `True` 时会删除原始小文件 |
+| `backup` | 是否备份原文件 | `True` | 删除前自动备份到 `.backup` 目录 |
+
+**工作流程：**
+1. 扫描 `files/` 目录下所有 `*translated.txt` 文件
+2. 统计每个文件的中文字符数
+3. 筛选出中文字数 < 10万字的文件
+4. 按文件名自然排序
+5. 智能合并文件（贪心算法，每个合并文件不超过20万字）
+6. 保存到 `files/combined/combined_1.txt`, `combined_2.txt`...
+7. （可选）备份并删除原文件
+
+**输出示例：**
+```
+files/combined/
+├── combined_1.txt  (包含 15 个小文件，共19.8万字)
+├── combined_2.txt  (包含 12 个小文件，共18.5万字)
+└── combined_3.txt  (包含 8 个小文件，共16.2万字)
 ```
 
-### 4. 本地Ollama模型翻译
+**注意事项：**
+- ⚠️ 设置 `delete_originals=True` 会删除原文件，请确保已备份
+- ⚠️ 备份文件保存在 `files/.backup/{timestamp}/` 目录
+- ⚠️ 只合并中文字数 < 10万字的文件，大文件不受影响
+- ⚠️ 合并后的文件会自动跳过（不会重复合并）
+
+### 3. 本地Ollama模型翻译
 
 **优势：**
 - 💸 完全免费，无需API费用
@@ -434,8 +442,6 @@ export OPENAI_API_KEY="your-api-key"
 | DeepSeek批量翻译 ⭐⭐ | ~¥0.2 | 中文 | 快（多线程+批量） | 自动批量处理，适合大量文件 |
 | AkashML多线程 🚀 | 需查询 | 中文 | 快（多线程） | 使用Qwen3-30B模型，仅生成TXT |
 | AkashML批量翻译 🚀🚀 | 需查询 | 中文 | 快（多线程+批量） | 自动批量处理，仅生成TXT |
-| OpenAI批处理 | ~¥0.17 | 中文 | 慢（异步） | 最便宜，需24小时 |
-| OpenAI实时 | ~¥0.36 | 中文 | 中 | 实时反馈 |
 | 本地Ollama | ¥0 | 需修改 | 很慢 | 完全免费，需本地资源 |
 
 *注：成本基于实际使用经验估算，实际费用可能因文档复杂度而异。*
@@ -475,15 +481,13 @@ text = translate.extract_text_from_pdf_translate(interupt=50)
 - `files/{原文件名} translated.txt`: 翻译后的文本文件（不生成PDF）
 - 翻译完成后自动删除原始文件（txt/pdf/epub）
 
-### OpenAI实时翻译和本地Ollama翻译：
+### 文档合并工具（merge_translated_files.py）：
+- `files/combined/combined_1.txt`, `combined_2.txt`...: 合并后的文本文件
+- `files/.backup/{timestamp}/`: 原文件备份目录（如果启用备份）
+
+### 本地Ollama翻译（ollama_local_qwen2.py）：
 - `files/{原文件名} translated.txt`: 翻译后的文本文件
 - `files/{原文件名} translated.pdf`: 翻译后的PDF文件（使用楷体字体）
-
-### OpenAI批处理翻译：
-- `files/{原文件名}.txt`: 翻译后的文本文件
-- `files/{原文件名}.pdf`: 翻译后的PDF文件（使用楷体字体）
-- `files/batch_input.jsonl`: 批处理输入文件
-- `files/batch_output.jsonl`: 批处理输出结果文件
 
 ## 高级配置
 
@@ -522,14 +526,14 @@ DeepSeek版本和AkashML版本已内置空白页过滤功能，会自动跳过�
 1. **文件格式**：目前支持PDF、EPUB和TXT格式
 2. **字体支持**：PDF输出使用楷体字体（kaiti.ttf），确保中文字符正确显示
 3. **API限制**：
-   - OpenAI API有速率限制，大批量翻译建议使用批处理模式
-   - DeepSeek API也有限制，建议线程数3-10个
-   - AkashML API也有限制，建议线程数3-10个
+   - DeepSeek API有速率限制，建议线程数3-10个
+   - AkashML API有速率限制，建议线程数3-10个
 4. **本地模型**：使用Ollama需要足够的本地计算资源（推荐8GB+内存）
 5. **文件大小**：建议单次翻译的文档不要过大，避免内存溢出
-6. **翻译语言**：DeepSeek、AkashML和OpenAI版本默认翻译成中文；本地Ollama版本需修改提示词
+6. **翻译语言**：DeepSeek和AkashML版本默认翻译成中文；本地Ollama版本需修改提示词
 7. **网络稳定性**：建议在网络稳定的环境下使用，避免翻译中断
 8. **输出格式**：`deepseek_nopdf.py`和`akashml.py`仅生成TXT格式，不生成PDF文件
+9. **文档合并**：使用合并工具前请确保已备份重要文件，删除操作不可逆
 
 ## 常见问题解答 (FAQ)
 
@@ -537,17 +541,15 @@ DeepSeek版本和AkashML版本已内置空白页过滤功能，会自动跳过�
 
 **A:** 根据你的需求选择：
 - **需要快速翻译，预算有限** → DeepSeek多线程（推荐）
-- **需要批量处理大量文件** → DeepSeek批量翻译、AkashML批量翻译或OpenAI批处理
-- **需要实时反馈，文件较小** → DeepSeek多线程、AkashML多线程或OpenAI实时
+- **需要批量处理大量文件** → DeepSeek批量翻译或AkashML批量翻译
+- **需要整理翻译后的碎片文件** → 文档合并工具
 - **需要高质量模型（Qwen3-30B）** → AkashML多线程
 - **数据敏感，需要隐私保护** → 本地Ollama
-- **预算充足，需要高质量** → OpenAI实时
 
 ### Q2: 翻译过程中断怎么办？
 
-**A:** 
+**A:**
 - **DeepSeek版本和AkashML版本**：自动支持断点续传，失败的页面会跳过，可以重新运行继续翻译
-- **OpenAI批处理**：保存返回的`batch_job_id`，下次运行时填入即可续传
 - **其他版本**：可以使用`interupt`参数从指定页面继续
 
 ### Q3: 遇到API限流错误怎么办？
@@ -591,6 +593,24 @@ DeepSeek版本和AkashML版本已内置空白页过滤功能，会自动跳过�
 - 确保`kaiti.ttf`字体文件存在于项目根目录
 - 检查字体文件是否损坏
 - 如果字体加载失败，程序会使用系统默认字体
+
+### Q9: 如何使用文档合并工具？
+
+**A:**
+- 适用场景：批量翻译后产生大量小文件，需要整理合并
+- 运行 `python merge_translated_files.py`
+- 默认只合并中文字数 < 10万字的文件
+- 每个合并文件不超过 20万字
+- 自动备份原文件到 `.backup` 目录
+- 可通过修改 `delete_originals` 参数控制是否删除原文件
+
+### Q10: 合并工具会删除我的文件吗？
+
+**A:**
+- 默认情况下（`delete_originals=False`）不会删除原文件
+- 设置 `delete_originals=True` 才会删除
+- 删除前会自动备份到 `files/.backup/{timestamp}/` 目录
+- 建议首次使用时保持 `delete_originals=False`，确认无误后再启用
 
 ## 故障排除
 
@@ -641,26 +661,6 @@ $env:AKASHML_API_KEY="your-key"
 **问题：API额度不足**
 - 登录 [AkashML平台](https://playground.akashml.com/) 检查余额
 - 充值后重新运行
-
-### OpenAI API相关
-
-**问题：API密钥错误**
-```bash
-# 检查环境变量
-echo $OPENAI_API_KEY
-
-# 重新设置
-export OPENAI_API_KEY="your-key"
-```
-
-**问题：批处理任务长时间无响应**
-- 批处理任务可能需要最多24小时
-- 使用返回的`batch_job_id`定期检查状态
-- 确保网络连接正常
-
-**问题：实时翻译速度慢**
-- 考虑使用DeepSeek API（更快更便宜）
-- 或使用批处理模式（成本更低）
 
 ### 本地Ollama相关
 
@@ -718,10 +718,11 @@ ollama pull qwen2:7b
 ## 性能优化建议
 
 1. **选择合适的翻译方式**
-   - 大批量文档：使用DeepSeek多线程、AkashML多线程或OpenAI批处理
-   - 小文件测试：使用DeepSeek多线程、AkashML多线程或OpenAI实时
+   - 大批量文档：使用DeepSeek批量翻译或AkashML批量翻译
+   - 小文件测试：使用DeepSeek多线程或AkashML多线程
    - 需要高质量模型：使用AkashML（Qwen3-30B）
    - 隐私要求高：使用本地Ollama
+   - 碎片文件整理：使用文档合并工具
 
 2. **调整线程数**
    - DeepSeek/AkashML API稳定：`max_workers=10`
@@ -730,8 +731,13 @@ ollama pull qwen2:7b
 
 3. **成本优化**
    - 优先选择DeepSeek（最便宜）
-   - 大批量使用批处理模式
+   - 大批量使用批量翻译脚本
    - 测试时使用本地模型
+
+4. **文件管理优化**
+   - 定期使用合并工具整理小文件
+   - 设置备份策略，避免数据丢失
+   - 合理使用 `delete_originals` 参数清理空间
 
 ## 开发说明
 
@@ -760,7 +766,17 @@ ollama pull qwen2:7b
 
 ## 更新日志
 
-### v2.3.0 (最新)
+### v2.4.0 (最新)
+- ✨ 新增文档合并工具（merge_translated_files.py）
+- 🔗 智能合并小型翻译文件，自动备份和清理
+- 📊 支持中文字数统计和智能分组
+- 🗂️ 自然排序和贪心算法优化合并策略
+- ❌ 移除OpenAI相关功能（chatgpt_batch.py 和 chatgpt_translate.py）
+- 🔧 优化并发控制，减少API限流问题
+- 🧹 代码清理和性能优化
+- 📝 更新README文档，添加合并工具使用说明
+
+### v2.3.0
 - ✨ 新增AkashML多线程翻译支持（akashml.py）
 - ✨ 新增AkashML批量翻译脚本（batch_akashml.py）
 - 🚀 使用Qwen3-30B-A3B模型，翻译质量高
