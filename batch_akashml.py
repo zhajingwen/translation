@@ -10,10 +10,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger('Translation Batch')
 
-from akashml import TranslateConfig, Translate
 from PyPDF2 import PdfReader
 from ebooklib import epub
 from bs4 import BeautifulSoup
+from akashml import TranslateConfig, Translate
+# from
+from merge_translated_files import merge_entrance
 
 def safe_delete(file_path: Path):
     """安全删除文件，捕获异常并记录"""
@@ -241,4 +243,11 @@ def batch_translate():
 
 
 if __name__ == '__main__':
+    # 批量翻译文件
     batch_translate()
+    # 合并翻译后的文件
+    merge_entrance(
+        files_dir="files", # 输入文件目录
+        delete_originals=True, # 删除原文件
+        backup=True # 是否备份原文件
+    )

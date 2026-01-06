@@ -326,7 +326,7 @@ def delete_original_files(
     return delete_results
 
 
-def main(
+def merge_entrance(
     files_dir: str = "files",
     delete_originals: bool = False,
     backup: bool = True
@@ -395,9 +395,8 @@ def main(
 
 
 if __name__ == "__main__":
-    # 基础使用：不删除原文件
-    main(
-        files_dir="files",
-        delete_originals=True,
-        backup=True
+    merge_entrance(
+        files_dir="files", # 输入文件目录
+        delete_originals=True, # 删除原文件
+        backup=True # 是否备份原文件
     )
