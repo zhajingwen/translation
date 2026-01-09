@@ -249,5 +249,5 @@ if __name__ == '__main__':
     merge_entrance(
         files_dir="files", # 输入文件目录
         delete_originals=True, # 删除原文件
-        backup=True # 是否备份原文件
+        backup=False # 是否备份原文件
     )
