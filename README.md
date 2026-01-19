@@ -1,6 +1,8 @@
-# 文档翻译工具
+# 文档翻译工具 v2.0
 
 一个功能强大的多线程文档翻译工具，支持 PDF、EPUB、TXT 格式的批量翻译，支持多个 LLM 服务商，具备智能文本切割、自动重试、进度跟踪等功能。
+
+**v2.0 更新**：代码已完全模块化重构，提高了可维护性、可扩展性和代码质量。
 
 ## 功能特性
 
@@ -89,21 +91,36 @@ python job.py --provider hyperbolic
 **作为模块使用**：
 
 ```python
-from job import Translate, TranslateConfig
+from translator import Translator, TranslateConfig
+from providers import get_provider
+
+# 方式 1: 使用服务商配置
+provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic'
 
 config = TranslateConfig(
-    max_workers=5,           # 线程数
-    max_retries=3,           # 重试次数
-    retry_delay=1,           # 重试延迟（秒）
-    chunk_size=8000,         # 文本切割阈值
-    min_chunk_size=500,      # 最小切割长度
-    api_timeout=60,          # API 超时时间
+    max_workers=5,
+    max_retries=3,
+    retry_delay=1,
+    chunk_size=8000,
+    min_chunk_size=500,
+    api_timeout=60,
+    api_base_url=provider_config.api_base_url,
+    model=provider_config.model,
+    api_key=provider_config.api_key
+)
+
+translator = Translator("your_file.pdf", config)
+translator.run()
+
+# 方式 2: 手动指定配置
+config = TranslateConfig(
+    max_workers=5,
     api_base_url="https://api.akashml.com/v1",
     model="Qwen/Qwen3-30B-A3B",
     api_key=os.environ.get('AKASHML_API_KEY')
 )
 
-translator = Translate("your_file.pdf", config)
+translator = Translator("your_file.pdf", config)
 translator.run()
 ```
 
@@ -233,18 +250,44 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 
 ```
 translation/
-├── job.py                      # 核心翻译模块
-├── batch.py                    # 批量翻译脚本
-├── merge_translated_files.py   # 文件合并脚本
+├── __init__.py                 # 包初始化文件
+├── config.py                   # 配置管理模块（NEW）
+├── providers.py                # 服务商配置模块（NEW）
+├── utils.py                    # 工具函数模块（NEW）
+├── text_processor.py           # 文本处理模块（NEW）
+├── translator.py               # 翻译核心模块（NEW）
+├── job.py                      # 单文件翻译入口（重构）
+├── batch.py                    # 批量翻译脚本（重构）
+├── merge_translated_files.py   # 文件合并脚本（重构）
+├── extractors/                 # 文本提取器模块（NEW）
+│   ├── __init__.py
+│   ├── base_extractor.py      # 基础提取器接口
+│   ├── pdf_extractor.py       # PDF 提取器
+│   ├── epub_extractor.py      # EPUB 提取器
+│   └── txt_extractor.py       # TXT 提取器
 ├── pyproject.toml              # 项目依赖配置
 ├── kaiti.ttf                   # 中文字体文件（保留，当前版本不生成PDF）
 ├── files/                      # 文件目录
 │   ├── combined/              # 合并后的文件目录
 │   └── ...                    # 待翻译和已翻译的文件
 └── test/                       # 测试脚本
+    ├── test_refactoring.py    # 重构测试脚本（NEW）
     ├── ollama_local_qwen2.py  # 本地 Ollama 翻译测试
     └── akash_llm.py           # AkashML API 测试
 ```
+
+### 代码结构说明（v2.0）
+
+项目已进行模块化重构，提高了代码的可维护性和可扩展性：
+
+- **config.py**: 统一管理所有配置项（路径、阈值、默认值等）
+- **providers.py**: 统一管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic）
+- **utils.py**: 提供通用工具函数（文件操作、字符统计、中文检测等）
+- **text_processor.py**: 文本切割和分块逻辑（智能句子边界识别）
+- **translator.py**: 核心翻译逻辑（多线程、重试、进度跟踪）
+- **extractors/**: 文本提取器模块，支持 PDF、EPUB、TXT 格式
+- **job.py**: 简化的单文件翻译入口
+- **batch.py**: 简化的批量翻译脚本
 
 ## 工作流程
 
@@ -344,20 +387,23 @@ export LOG_SHOW_CONTENT=false  # 不显示翻译内容预览（默认 true）
 ### 示例 1：翻译单个 PDF 文件
 
 ```python
-from job import Translate, TranslateConfig
-import os
+from translator import Translator, TranslateConfig
+from providers import get_provider
+
+# 获取服务商配置
+provider_config = get_provider('akashml')
 
 config = TranslateConfig(
     max_workers=5,
     max_retries=3,
     retry_delay=2,
     chunk_size=8000,
-    api_base_url="https://api.akashml.com/v1",
-    model="Qwen/Qwen3-30B-A3B",
-    api_key=os.environ.get('AKASHML_API_KEY')
+    api_base_url=provider_config.api_base_url,
+    model=provider_config.model,
+    api_key=provider_config.api_key
 )
 
-translator = Translate("document.pdf", config)
+translator = Translator("document.pdf", config)
 translator.run()
 ```
 

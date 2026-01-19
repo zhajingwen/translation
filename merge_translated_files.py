@@ -19,36 +19,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+from config import LogConfig, CharLimits, PathConfig
+from utils import count_chinese_characters
+
 # ================== 日志配置 ==================
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=getattr(logging, LogConfig.LOG_LEVEL, logging.INFO),
+    format=LogConfig.LOG_FORMAT,
+    datefmt=LogConfig.LOG_DATE_FORMAT
 )
 logger = logging.getLogger('FileMerge')
 
 
 # ================== 核心函数 ==================
-
-def count_chinese_characters(text: str) -> int:
-    """
-    统计文本中的中文字符数量
-
-    Args:
-        text: 输入文本字符串
-
-    Returns:
-        中文字符数（仅统计汉字，不含标点、空格、英文）
-
-    实现：
-        使用 Unicode 范围 \u4e00 - \u9fff 判断中文字符
-        覆盖 GB2312、GBK 等常用中文字符集
-    """
-    count = 0
-    for char in text:
-        if '\u4e00' <= char <= '\u9fff':
-            count += 1
-    return count
-
 
 def natural_sort_key(path: Path) -> list:
     """
@@ -71,14 +54,14 @@ def natural_sort_key(path: Path) -> list:
 
 def scan_and_filter_files(
     files_dir: Path,
-    char_limit: int = 100000
+    char_limit: int = None
 ) -> List[Tuple[Path, int]]:
     """
     扫描目录，筛选符合条件的文件
 
     Args:
         files_dir: 目标目录路径
-        char_limit: 中文字符数上限（默认10万）
+        char_limit: 中文字符数上限，默认使用配置值
 
     Returns:
         列表：(文件路径, 中文字符数) 元组，按文件名排序
@@ -89,6 +72,9 @@ def scan_and_filter_files(
         3. 筛选出中文字数 < char_limit 的文件
         4. 按文件名自然排序
     """
+    if char_limit is None:
+        char_limit = CharLimits.SMALL_FILE_LIMIT
+    
     logger.info(f"扫描目录: {files_dir}")
 
     # 检查目录是否存在
@@ -153,7 +139,7 @@ def scan_and_filter_files(
 def merge_files(
     file_list: List[Tuple[Path, int]],
     output_dir: Path,
-    merge_limit: int = 200000
+    merge_limit: int = None
 ) -> List[Path]:
     """
     按中文字数限制合并文件
@@ -161,7 +147,7 @@ def merge_files(
     Args:
         file_list: (文件路径, 中文字符数) 列表
         output_dir: 输出目录
-        merge_limit: 单个合并文件的中文字数上限（默认20万）
+        merge_limit: 单个合并文件的中文字数上限，默认使用配置值
 
     Returns:
         生成的合并文件路径列表
@@ -170,6 +156,9 @@ def merge_files(
         使用贪心算法，尽可能将文件合并到当前文件中
         当添加下一个文件会超过限制时，开始新的合并文件
     """
+    if merge_limit is None:
+        merge_limit = CharLimits.MERGE_FILE_LIMIT
+    
     logger.info(f"开始合并文件，限制: {merge_limit:,} 字")
 
     if not file_list:
@@ -287,7 +276,7 @@ def delete_original_files(
     backup_dir = None
     if backup:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        backup_dir = Path("files/.backup") / timestamp
+        backup_dir = PathConfig.BACKUP_DIR / timestamp
 
         try:
             backup_dir.mkdir(parents=True, exist_ok=True)
@@ -351,7 +340,7 @@ def merge_entrance(
     logger.info("\n步骤 1/4: 扫描并筛选文件")
     filtered_files = scan_and_filter_files(
         files_dir=files_path,
-        char_limit=100000  # 10万字
+        char_limit=CharLimits.SMALL_FILE_LIMIT
     )
 
     if not filtered_files:
@@ -363,7 +352,7 @@ def merge_entrance(
     merged_files = merge_files(
         file_list=filtered_files,
         output_dir=output_path,
-        merge_limit=200000  # 20万字
+        merge_limit=CharLimits.MERGE_FILE_LIMIT
     )
 
     if not merged_files:
