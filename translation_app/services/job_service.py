@@ -9,8 +9,8 @@ from pathlib import Path
 
 from translation_app.domain.translator import Translator, TranslateConfig
 from translation_app.infra.openai_client import build_openai_client
-from providers import get_provider
-from config import TranslationDefaults
+from translation_app.core.providers import get_provider
+from translation_app.core.config import TranslationDefaults
 
 
 logger = logging.getLogger('JobService')

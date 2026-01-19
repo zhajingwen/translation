@@ -4,7 +4,7 @@
 
 import logging
 
-from config import LogConfig
+from translation_app.core.config import LogConfig
 
 
 def setup_logging():

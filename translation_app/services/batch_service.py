@@ -10,15 +10,15 @@ import time
 from translation_app.domain.translator import Translator, TranslateConfig
 from translation_app.infra.openai_client import build_openai_client
 from translation_app.services.merge_service import merge_entrance
-from providers import get_provider
-from utils import (
+from translation_app.core.providers import get_provider
+from translation_app.core.utils import (
     safe_delete,
     safe_rename,
     count_file_characters,
     is_file_chinese,
     get_translated_path
 )
-from config import (
+from translation_app.core.config import (
     LogConfig,
     PathConfig,
     CharLimits,

@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Dict
 
-from config import CharLimits, PathConfig
-from utils import count_chinese_characters
+from translation_app.core.config import CharLimits, PathConfig
+from translation_app.core.utils import count_chinese_characters
 
 
 logger = logging.getLogger('FileMerge')

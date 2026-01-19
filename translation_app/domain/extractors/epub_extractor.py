@@ -13,7 +13,7 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 
 from translation_app.domain.extractors.base_extractor import BaseExtractor
-from config import FileFormats
+from translation_app.core.config import FileFormats
 
 
 logger = logging.getLogger('EPUBExtractor')

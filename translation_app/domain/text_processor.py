@@ -9,7 +9,7 @@
 import logging
 from typing import List
 
-from config import SENTENCE_END_PUNCTUATION, SECONDARY_PUNCTUATION
+from translation_app.core.config import SENTENCE_END_PUNCTUATION, SECONDARY_PUNCTUATION
 
 
 logger = logging.getLogger('TextProcessor')
