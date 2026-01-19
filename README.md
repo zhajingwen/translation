@@ -1,8 +1,10 @@
-# 文档翻译工具 v2.0
+# 文档翻译工具 v2.2
 
 一个功能强大的多线程文档翻译工具，支持 PDF、EPUB、TXT 格式的批量翻译，支持多个 LLM 服务商，具备智能文本切割、自动重试、进度跟踪等功能。
 
-**v2.1 更新**：架构重构完成，采用清晰的分层架构，所有核心模块已移入 `translation_app/` 包内，解决跨层级导入问题，提升了可维护性、可扩展性和代码质量。
+**v2.2 更新**：彻底清理兼容层，删除冗余的向后兼容文件，项目结构更加清晰简洁。
+
+**v2.1 更新**：架构重构完成，采用清晰的分层架构，所有核心模块已移入 `translation_app/` 包内。
 
 **v2.0 更新**：代码初步模块化重构。
 
@@ -260,9 +262,12 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 translation/
 ├── pyproject.toml              # 项目依赖配置
 ├── README.md                   # 项目文档
+├── batch.py                    # 批量翻译 CLI 入口
+├── job.py                      # 单文件翻译 CLI 入口
+├── merge_translated_files.py  # 文件合并 CLI 入口
 ├── translation_app/            # 核心应用包
 │   ├── __init__.py
-│   ├── core/                   # 核心配置和工具（v2.1）
+│   ├── core/                   # 核心配置和工具
 │   │   ├── __init__.py
 │   │   ├── config.py           # 配置管理模块
 │   │   ├── providers.py        # 服务商配置模块
@@ -288,27 +293,27 @@ translation/
 │   └── cli/                    # 命令行接口
 │       ├── __init__.py
 │       ├── main.py             # 统一 CLI 入口
-│       ├── batch.py            # 批量翻译 CLI
-│       ├── job.py              # 单文件翻译 CLI
-│       ├── merge.py            # 文件合并 CLI
+│       ├── batch.py            # 批量翻译命令
+│       ├── job.py              # 单文件翻译命令
+│       ├── merge.py            # 文件合并命令
 │       └── logging_setup.py    # 日志配置
-├── batch.py                    # 批量翻译入口（兼容）
-├── job.py                      # 单文件翻译入口（兼容）
-├── merge_translated_files.py  # 文件合并入口（兼容）
-├── translator.py               # 翻译模块入口（兼容）
-├── config.py                   # 配置模块入口（兼容）
-├── providers.py                # 服务商配置入口（兼容）
-├── utils.py                    # 工具函数入口（兼容）
-├── files/                      # 工作目录
-│   ├── combined/               # 合并后的文件目录
-│   └── .backup/                # 备份目录
-└── test/                       # 测试脚本
-    ├── akash_llm.py            # AkashML API 测试
-    ├── hyperbolic.py           # Hyperbolic API 测试
-    └── ollama_local_qwen2.py   # 本地 Ollama 翻译测试
+├── tests/                      # 测试目录
+│   ├── unit/                   # 单元测试
+│   │   ├── test_config.py
+│   │   ├── test_utils.py
+│   │   └── test_text_processor.py
+│   ├── integration/            # 集成测试
+│   └── conftest.py             # pytest 配置
+├── examples/                   # 示例脚本
+│   ├── akash_llm.py            # AkashML API 测试
+│   ├── hyperbolic.py           # Hyperbolic API 测试
+│   └── ollama_local_qwen2.py   # 本地 Ollama 翻译测试
+└── files/                      # 工作目录
+    ├── combined/               # 合并后的文件目录
+    └── .backup/                # 备份目录
 ```
 
-### 架构说明（v2.1）
+### 架构说明
 
 项目采用清晰的分层架构，职责明确：
 
@@ -353,9 +358,6 @@ cli → services → domain ← infra
 - **domain** 依赖 **core**（配置和工具）
 - **infra** 独立，被 **services** 使用
 - **core** 被所有层使用，不依赖其他层
-
-#### 向后兼容
-根目录保留了兼容入口文件（config.py、providers.py、utils.py 等），这些文件仅转发到 `translation_app.core`，确保外部代码仍可正常导入。
 
 ## 工作流程
 
