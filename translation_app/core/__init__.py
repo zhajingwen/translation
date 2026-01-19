@@ -63,7 +63,7 @@ __all__ = [
     'ApiConfig',
     'TranslateConfig',
     'create_translate_config',
-    # utils
+    # file_ops
     'safe_delete',
     'safe_rename',
     'count_file_characters',

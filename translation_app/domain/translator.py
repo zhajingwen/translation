@@ -20,7 +20,7 @@ from translation_app.domain.extractors import get_extractor
 from translation_app.domain.text_processor import TextProcessor
 from translation_app.core.config import LogConfig, PathConfig
 from translation_app.core.translate_config import TranslateConfig
-from translation_app.core.utils import normalize_file_path, get_translated_path
+from translation_app.core.path_utils import normalize_file_path, get_translated_path
 
 
 logger = logging.getLogger('Translator')

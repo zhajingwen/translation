@@ -18,16 +18,32 @@ from typing import Optional
 # ================== 路径配置 ==================
 
 class PathConfig:
-    """文件路径配置"""
+    """
+    文件路径配置
     
-    # 工作目录
-    WORK_DIR = Path("files")
+    支持通过环境变量覆盖：
+    - TRANSLATION_WORK_DIR: 工作目录（默认: files）
+    """
+    
+    # 工作目录（支持环境变量覆盖）
+    WORK_DIR = Path(os.environ.get('TRANSLATION_WORK_DIR', 'files'))
     
     # 合并文件输出目录
     COMBINED_DIR = WORK_DIR / "combined"
     
     # 备份目录
     BACKUP_DIR = WORK_DIR / ".backup"
+    
+    @classmethod
+    def refresh(cls):
+        """
+        重新加载路径配置（从环境变量）
+        
+        当运行时动态修改环境变量后，调用此方法刷新配置
+        """
+        cls.WORK_DIR = Path(os.environ.get('TRANSLATION_WORK_DIR', 'files'))
+        cls.COMBINED_DIR = cls.WORK_DIR / "combined"
+        cls.BACKUP_DIR = cls.WORK_DIR / ".backup"
     
     @classmethod
     def ensure_dirs(cls):
