@@ -12,3 +12,6 @@ dependencies = [
     "requests>=2.28.0",
     "retry>=0.9.2",
 ]
+
+[project.scripts]
+translate = "translation_app.cli.main:main"

@@ -1,6 +1,12 @@
-# 文档翻译工具 v2.2
+# 文档翻译工具 v2.3
 
 一个功能强大的多线程文档翻译工具，支持 PDF、EPUB、TXT 格式的批量翻译，支持多个 LLM 服务商，具备智能文本切割、自动重试、进度跟踪等功能。
+
+**v2.3 更新**：架构优化完成 🎉
+- 统一 CLI 入口，删除根目录冗余文件
+- 解决循环依赖问题，优化分层架构
+- 拆分配置类和工具模块，职责更清晰
+- 抽取预处理逻辑到独立模块
 
 **v2.2 更新**：彻底清理兼容层，删除冗余的向后兼容文件，项目结构更加清晰简洁。
 
@@ -73,23 +79,43 @@ export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 
 ## 使用方法
 
-### 1. 单文件翻译（job.py）
+**重要提示**：v2.3 版本统一了 CLI 入口，旧的 `batch.py`、`job.py`、`merge_translated_files.py` 已删除。请使用以下新方式。
+
+### 快速开始
+
+```bash
+# 方式 1：直接使用模块（推荐）
+python -m translation_app.cli.main job myfile.txt
+python -m translation_app.cli.main batch --provider akashml
+python -m translation_app.cli.main merge
+
+# 方式 2：安装后使用命令（更简洁）
+uv pip install -e .
+translate job myfile.txt
+translate batch --provider akashml
+translate merge
+```
+
+### 1. 单文件翻译
 
 通过命令行参数指定要翻译的文件：
 
 ```bash
 # 基本用法（使用默认服务商 AkashML）
-python job.py myfile.txt
+python -m translation_app.cli.main job myfile.txt
+
+# 或者安装后使用
+translate job myfile.txt
 
 # 指定文件路径
-python job.py files/document.pdf
+translate job files/document.pdf
 
 # 指定服务商
-python job.py myfile.txt --provider deepseek
-python job.py book.epub -p hyperbolic
+translate job myfile.txt --provider deepseek
+translate job book.epub -p hyperbolic
 
 # 查看帮助信息
-python job.py --help
+translate job --help
 ```
 
 **参数说明**：
@@ -98,16 +124,18 @@ python job.py --help
 - 文件路径支持相对路径和绝对路径
 - 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
-**作为模块使用**：
+**作为 Python 模块使用**：
 
 ```python
-from translator import Translator, TranslateConfig
-from providers import get_provider
+from translation_app.domain.translator import Translator
+from translation_app.core.translate_config import create_translate_config
+from translation_app.core.providers import get_provider
+from translation_app.infra.openai_client import build_openai_client
 
-# 方式 1: 使用服务商配置
+# 方式 1: 使用便捷函数创建配置
 provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic'
 
-config = TranslateConfig(
+config = create_translate_config(
     max_workers=5,
     max_retries=3,
     retry_delay=1,
@@ -116,36 +144,34 @@ config = TranslateConfig(
     api_timeout=60,
     api_base_url=provider_config.api_base_url,
     model=provider_config.model,
-    api_key=provider_config.api_key
+    api_key=provider_config.api_key,
+    client_factory=build_openai_client
 )
 
 translator = Translator("your_file.pdf", config)
 translator.run()
 
-# 方式 2: 手动指定配置
-config = TranslateConfig(
-    max_workers=5,
-    api_base_url="https://api.akashml.com/v1",
-    model="Qwen/Qwen3-30B-A3B",
-    api_key=os.environ.get('AKASHML_API_KEY')
-)
+# 方式 2: 使用服务层
+from translation_app.services.job_service import run_single_file
 
-translator = Translator("your_file.pdf", config)
-translator.run()
+success = run_single_file("your_file.pdf", provider='akashml')
 ```
 
-### 2. 批量翻译（batch.py）
+### 2. 批量翻译
 
 批量翻译 `files/` 目录下的所有文件：
 
 ```bash
 # 使用默认服务商（AkashML）
-python batch.py
+python -m translation_app.cli.main batch
+
+# 或者安装后使用
+translate batch
 
 # 指定服务商
-python batch.py --provider akashml
-python batch.py --provider deepseek
-python batch.py --provider hyperbolic
+translate batch --provider akashml
+translate batch --provider deepseek
+translate batch --provider hyperbolic
 ```
 
 **批量翻译的自动化流程**：
@@ -159,12 +185,19 @@ python batch.py --provider hyperbolic
 7. 翻译成功后删除原文件
 8. 自动调用合并脚本合并小型文件（< 10万字）
 
-### 3. 文件合并（merge_translated_files.py）
+### 3. 文件合并
 
 合并小型翻译文件：
 
 ```bash
-python merge_translated_files.py
+# 基本用法
+python -m translation_app.cli.main merge
+
+# 或者安装后使用
+translate merge
+
+# 自定义选项
+translate merge --files-dir files --keep-originals --no-backup
 ```
 
 **合并规则**：
@@ -175,10 +208,10 @@ python merge_translated_files.py
 - 保存到 `files/combined/` 目录
 - 可选：删除原文件并备份
 
-**作为模块使用**：
+**作为 Python 模块使用**：
 
 ```python
-from merge_translated_files import merge_entrance
+from translation_app.services.merge_service import merge_entrance
 
 merge_entrance(
     files_dir="files",          # 输入文件目录
@@ -187,7 +220,7 @@ merge_entrance(
 )
 ```
 
-### 4. 本地 Ollama 测试（test/ollama_local_qwen2.py）
+### 4. 本地 Ollama 测试
 
 使用本地 Ollama 模型进行翻译（零成本）：
 
@@ -195,7 +228,7 @@ merge_entrance(
 # 确保本地运行了 Ollama 服务
 # 默认地址：http://localhost:11434
 
-python test/ollama_local_qwen2.py
+python examples/ollama_local_qwen2.py
 ```
 
 **注意**：需要在脚本中修改 `MODEL_NAME` 和 `source_origin_book_name` 变量。
@@ -481,7 +514,7 @@ translator.run()
 
 ```bash
 # 将所有待翻译文件放入 files/ 目录
-python batch.py --provider akashml
+translate batch --provider akashml
 
 # 脚本会自动：
 # 1. 翻译所有文件
@@ -513,9 +546,100 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-python job.py myfile.txt --provider akashml    # 或 deepseek、hyperbolic
-python batch.py --provider deepseek
+translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic
+translate batch --provider deepseek
 ```
+
+## 从 v2.2 迁移到 v2.3
+
+如果你从 v2.2 或更早版本升级到 v2.3，请注意以下变更：
+
+### 主要变更
+
+1. **根目录入口文件已删除**
+   - ❌ `batch.py` - 已删除
+   - ❌ `job.py` - 已删除
+   - ❌ `merge_translated_files.py` - 已删除
+
+2. **新的 CLI 使用方式**
+
+| 旧命令 | 新命令 |
+|--------|--------|
+| `python batch.py` | `python -m translation_app.cli.main batch` 或 `translate batch` |
+| `python job.py file.txt` | `python -m translation_app.cli.main job file.txt` 或 `translate job file.txt` |
+| `python merge_translated_files.py` | `python -m translation_app.cli.main merge` 或 `translate merge` |
+
+3. **作为模块使用的导入路径变更**
+
+```python
+# 旧方式（v2.2）
+from translator import Translator, TranslateConfig
+from providers import get_provider
+
+# 新方式（v2.3）
+from translation_app.domain.translator import Translator
+from translation_app.core.translate_config import create_translate_config
+from translation_app.core.providers import get_provider
+from translation_app.infra.openai_client import build_openai_client
+```
+
+4. **配置创建方式改进**
+
+```python
+# 旧方式
+config = TranslateConfig(
+    max_workers=5,
+    max_retries=3,
+    # ... 其他参数
+)
+
+# 新方式（推荐）
+config = create_translate_config(
+    max_workers=5,
+    max_retries=3,
+    # ... 其他参数
+    client_factory=build_openai_client
+)
+```
+
+### 迁移步骤
+
+1. **安装新版本**
+```bash
+cd translation
+git pull  # 或下载新版本
+uv sync
+```
+
+2. **配置 CLI 命令（可选）**
+```bash
+uv pip install -e .
+# 现在可以使用 translate 命令
+```
+
+3. **更新你的脚本或命令**
+   - 将旧的 `python batch.py` 替换为 `translate batch`
+   - 将旧的 `python job.py` 替换为 `translate job`
+   - 如果作为模块使用，更新导入路径
+
+4. **测试**
+```bash
+# 测试单文件翻译
+translate job --help
+
+# 测试批量翻译
+translate batch --help
+```
+
+### 新功能
+
+v2.3 带来了以下架构改进：
+
+- ✅ 统一的 CLI 入口，使用更简洁
+- ✅ 消除循环依赖，分层更清晰
+- ✅ 配置类职责单一，更易维护
+- ✅ 工具模块拆分，代码组织更合理
+- ✅ 预处理逻辑独立，可复用性更强
 
 ## 许可证
 

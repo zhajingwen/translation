@@ -7,17 +7,13 @@
 import logging
 import time
 
-from translation_app.domain.translator import Translator, TranslateConfig
+from translation_app.domain.translator import Translator
+from translation_app.domain.file_preprocessor import FilePreprocessor
+from translation_app.core.translate_config import create_translate_config
 from translation_app.infra.openai_client import build_openai_client
 from translation_app.services.merge_service import merge_entrance
 from translation_app.core.providers import get_provider
-from translation_app.core.utils import (
-    safe_delete,
-    safe_rename,
-    count_file_characters,
-    is_file_chinese,
-    get_translated_path
-)
+from translation_app.core.file_ops import safe_delete
 from translation_app.core.config import (
     LogConfig,
     PathConfig,
@@ -39,7 +35,7 @@ def batch_translate(provider: str = 'akashml'):
     """
     provider_config = get_provider(provider)
 
-    config = TranslateConfig(
+    config = create_translate_config(
         max_workers=TranslationDefaults.BATCH_MAX_WORKERS,
         max_retries=TranslationDefaults.BATCH_MAX_RETRIES,
         retry_delay=TranslationDefaults.BATCH_RETRY_DELAY,
@@ -66,59 +62,11 @@ def batch_translate(provider: str = 'akashml'):
         return
 
     # 预处理：筛选出需要处理的文件
-    files_to_process = []
-    skipped_already_translated = 0
-    skipped_already_chinese = 0
-    skipped_char_too_few = 0
-    skipped_result_exists = 0
-
-    for file_path in all_files:
-        file_name = file_path.name
-
-        # 跳过已翻译文件
-        if file_name.endswith("translated.txt"):
-            skipped_already_translated += 1
-            logger.debug(f"[预处理] 跳过已翻译文件: {file_name}")
-            continue
-
-        # 检测中文文件并重命名（仅针对 .txt 文件）
-        if file_path.suffix.lower() == '.txt' and is_file_chinese(file_path):
-            skipped_already_chinese += 1
-            new_name = f"{file_path.stem}{FileFormats.TRANSLATED_SUFFIX}"
-            if safe_rename(file_path, new_name):
-                logger.info(f"[预处理] 跳过中文文件并重命名: {file_name} -> {new_name}")
-            else:
-                logger.info(f"[预处理] 跳过中文文件（重命名失败）: {file_name}")
-            continue
-
-        # 检查文件字符数，小于阈值则删除
-        char_count = count_file_characters(file_path)
-        if char_count >= 0 and char_count < CharLimits.MIN_FILE_CHARS:
-            skipped_char_too_few += 1
-            logger.info(f"[预处理] 删除文件（字符数 {char_count} < {CharLimits.MIN_FILE_CHARS}）: {file_name}")
-            safe_delete(file_path)
-            continue
-
-        # 检查翻译结果文件是否存在
-        translated_path = get_translated_path(file_path)
-
-        if translated_path.exists():
-            skipped_result_exists += 1
-            logger.info(f"[预处理] 删除文件（已存在翻译结果）: {file_name}")
-            safe_delete(file_path)
-            continue
-
-        files_to_process.append(file_path)
-
-    skipped_pre_count = (
-        skipped_already_translated
-        + skipped_already_chinese
-        + skipped_char_too_few
-        + skipped_result_exists
-    )
+    preprocessor = FilePreprocessor()
+    files_to_process, preprocess_stats = preprocessor.preprocess_files(all_files)
 
     if not files_to_process:
-        logger.info(f"没有需要处理的文件（预处理跳过 {skipped_pre_count} 个文件）")
+        logger.info(f"没有需要处理的文件（预处理跳过 {preprocess_stats.total_skipped} 个文件）")
         return
 
     # 初始化进度统计变量
@@ -126,7 +74,7 @@ def batch_translate(provider: str = 'akashml'):
     current_index = 0
     success_count = 0
     failed_count = 0
-    skipped_count = skipped_pre_count
+    skipped_count = preprocess_stats.total_skipped
     start_time = time.time()
 
     # 记录任务开始信息
@@ -144,17 +92,8 @@ def batch_translate(provider: str = 'akashml'):
         config.api_timeout
     )
 
-    if skipped_pre_count > 0:
-        logger.info(f'[任务] 预处理统计:')
-        if skipped_already_translated > 0:
-            logger.info(f'  - 跳过已翻译文件: {skipped_already_translated} 个')
-        if skipped_already_chinese > 0:
-            logger.info(f'  - 跳过中文文件: {skipped_already_chinese} 个（不删除）')
-        if skipped_char_too_few > 0:
-            logger.info(f'  - 删除字符数不足文件: {skipped_char_too_few} 个（字符数 < {CharLimits.MIN_FILE_CHARS}）')
-        if skipped_result_exists > 0:
-            logger.info(f'  - 删除已存在翻译结果的文件: {skipped_result_exists} 个')
-        logger.info(f'  - 预处理跳过总计: {skipped_pre_count} 个文件')
+    if preprocess_stats.total_skipped > 0:
+        preprocessor.log_stats()
     logger.info('=' * 60)
 
     # 处理每个文件

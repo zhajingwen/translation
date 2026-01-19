@@ -11,8 +11,7 @@
 
 import logging
 import time
-from dataclasses import dataclass
-from typing import List, Tuple, Optional, Callable, Any
+from typing import List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import APITimeoutError, APIError
@@ -20,44 +19,11 @@ from openai import APITimeoutError, APIError
 from translation_app.domain.extractors import get_extractor
 from translation_app.domain.text_processor import TextProcessor
 from translation_app.core.config import LogConfig, PathConfig
+from translation_app.core.translate_config import TranslateConfig
 from translation_app.core.utils import normalize_file_path, get_translated_path
 
 
 logger = logging.getLogger('Translator')
-
-
-@dataclass
-class TranslateConfig:
-    """
-    翻译配置类
-
-    参数:
-        max_workers: 最大线程数，默认5
-        max_retries: 最大重试次数，默认3
-        retry_delay: 重试延迟时间（秒），默认1
-        chunk_size: 文本切割阈值（字符数），默认8000
-        min_chunk_size: 最小切割长度（字符数），默认500
-        api_timeout: API超时时间（秒），默认60
-        api_base_url: API基础URL（必需）
-        model: 模型名称（必需）
-        api_key: API密钥（必需）
-        client_factory: 可选的客户端工厂，用于替换默认 OpenAI 客户端
-    """
-    max_workers: int = 5
-    max_retries: int = 3
-    retry_delay: int = 1
-    chunk_size: int = 8000
-    min_chunk_size: int = 500
-    api_timeout: int = 60
-    api_base_url: Optional[str] = None
-    model: Optional[str] = None
-    api_key: Optional[str] = None
-    client_factory: Optional[Callable[['TranslateConfig'], Any]] = None
-
-    def __post_init__(self):
-        """验证必需参数"""
-        if self.api_key is None and self.client_factory is None:
-            raise ValueError("api_key 参数是必需的，必须通过 TranslateConfig 传入")
 
 
 class Translator:

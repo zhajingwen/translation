@@ -7,7 +7,8 @@
 import logging
 from pathlib import Path
 
-from translation_app.domain.translator import Translator, TranslateConfig
+from translation_app.domain.translator import Translator
+from translation_app.core.translate_config import create_translate_config
 from translation_app.infra.openai_client import build_openai_client
 from translation_app.core.providers import get_provider
 from translation_app.core.config import TranslationDefaults
@@ -38,7 +39,7 @@ def run_single_file(source_file: str, provider: str = 'akashml') -> bool:
     logger.info(f"准备翻译文件: {source_file}")
     logger.info(f"使用服务商: {provider_config.name}")
 
-    config = TranslateConfig(
+    config = create_translate_config(
         max_workers=TranslationDefaults.JOB_MAX_WORKERS,
         max_retries=TranslationDefaults.JOB_MAX_RETRIES,
         retry_delay=TranslationDefaults.JOB_RETRY_DELAY,

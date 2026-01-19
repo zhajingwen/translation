@@ -6,7 +6,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from translation_app.domain.translator import TranslateConfig
+from translation_app.core.translate_config import TranslateConfig
 
 
 def build_openai_client(config: TranslateConfig) -> Any:
