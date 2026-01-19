@@ -243,6 +243,17 @@ class Translator:
 
         # 合并翻译结果
         merged_text = "\n\n".join([text for text, _ in self.text_list if text])
+        
+        # 计算并打印翻译速度统计
+        total_chars = sum(len(chunk) for chunk in chunks)
+        elapsed_time = time.time() - self.translate_start_time
+        if elapsed_time > 0:
+            chars_per_second = total_chars / elapsed_time
+            logger.info(
+                f'[翻译] 完成 | 总字符数: {total_chars:,} | 耗时: {elapsed_time:.1f}s | '
+                f'速度: {chars_per_second:.1f} 字符/秒'
+            )
+        
         return merged_text
 
     def _update_progress(self, completed_count: int):
