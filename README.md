@@ -1,18 +1,6 @@
-# 文档翻译工具 v2.3
+# 文档翻译工具
 
 一个功能强大的多线程文档翻译工具，支持 PDF、EPUB、TXT 格式的批量翻译，支持多个 LLM 服务商，具备智能文本切割、自动重试、进度跟踪等功能。
-
-**v2.3 更新**：架构优化完成 🎉
-- 统一 CLI 入口，删除根目录冗余文件
-- 解决循环依赖问题，优化分层架构
-- 拆分配置类和工具模块，职责更清晰
-- 抽取预处理逻辑到独立模块
-
-**v2.2 更新**：彻底清理兼容层，删除冗余的向后兼容文件，项目结构更加清晰简洁。
-
-**v2.1 更新**：架构重构完成，采用清晰的分层架构，所有核心模块已移入 `translation_app/` 包内。
-
-**v2.0 更新**：代码初步模块化重构。
 
 ## 功能特性
 
@@ -79,22 +67,110 @@ export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 
 ## 使用方法
 
-**重要提示**：v2.3 版本统一了 CLI 入口，旧的 `batch.py`、`job.py`、`merge_translated_files.py` 已删除。请使用以下新方式。
+### ✅ 准备工作
 
-### 快速开始
+开始使用前，请确认以下条件已满足：
+
+- [ ] **Python 环境**：已安装 Python >= 3.12
+- [ ] **项目依赖**：已执行 `uv sync` 或 `pip install` 安装依赖
+- [ ] **API 密钥**：已配置对应服务商的 API Key 环境变量
+- [ ] **待翻译文件**：已准备好文件（支持 `.txt`、`.pdf`、`.epub` 格式）
+
+### 🚀 三步快速上手
+
+#### 第一步：安装依赖
 
 ```bash
-# 方式 1：直接使用模块（推荐）
-python -m translation_app.cli.main job myfile.txt
-python -m translation_app.cli.main batch --provider akashml
-python -m translation_app.cli.main merge
+# 推荐使用 uv（更快）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
 
-# 方式 2：安装后使用命令（更简洁）
-uv pip install -e .
-translate job myfile.txt
-translate batch --provider akashml
-translate merge
+# 或使用传统 pip
+pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 ```
+
+#### 第二步：配置 API Key
+
+选择一个服务商并配置其 API Key（必需）：
+
+```bash
+# 选项 1：AkashML（推荐，性价比高）
+export AKASHML_API_KEY="your_akashml_api_key"
+
+# 选项 2：DeepSeek
+export DEEPSEEK_API_KEY="your_deepseek_api_key"
+
+# 选项 3：Hyperbolic
+export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
+```
+
+#### 第三步：开始翻译
+
+```bash
+# 安装命令行工具（推荐，使用更简洁）
+uv pip install -e .
+
+# 翻译单个文件（最简单的方式）
+translate job your_file.pdf
+
+# 批量翻译 files/ 目录下的所有文件
+translate batch
+
+# 就这么简单！翻译结果保存为 "原文件名 translated.txt"
+```
+
+**不想安装？直接使用模块：**
+
+```bash
+python -m translation_app.cli.main job your_file.pdf
+python -m translation_app.cli.main batch
+```
+
+### 📊 工作流程可视化
+
+#### 单文件翻译流程
+
+```mermaid
+graph LR
+    A[输入文件] --> B[提取文本]
+    B --> C[智能切割]
+    C --> D[多线程翻译]
+    D --> E[自动重试]
+    E --> F[合并结果]
+    F --> G[保存TXT文件]
+```
+
+#### 批量翻译自动化流程
+
+```mermaid
+graph TD
+    Start[扫描files目录] --> Check1{已翻译?}
+    Check1 -->|是| Skip[跳过]
+    Check1 -->|否| Check2{中文文件?}
+    Check2 -->|是| Rename[重命名为translated]
+    Check2 -->|否| Check3{字符数>1000?}
+    Rename --> Skip
+    Check3 -->|否| Delete[删除小文件]
+    Check3 -->|是| Translate[开始翻译]
+    Delete --> Next
+    Translate --> Success{成功?}
+    Success -->|是| RemoveOrig[删除原文件]
+    Success -->|否| Keep[保留原文件]
+    RemoveOrig --> Next[处理下一个]
+    Keep --> Next
+    Skip --> Next
+    Next --> AutoMerge[自动合并小文件]
+```
+
+### ❓ 遇到问题？快速排查
+
+| 问题 | 可能原因 | 解决方案 |
+|------|---------|---------|
+| ❌ `API key not found` | 未配置环境变量 | 执行 `export AKASHML_API_KEY="your_key"` |
+| ❌ `translate: command not found` | 未安装命令行工具 | 执行 `uv pip install -e .` |
+| ❌ `Unsupported file format` | 文件格式不支持 | 确认文件是 `.txt`、`.pdf` 或 `.epub` 格式 |
+| ❌ `Permission denied` | 文件权限问题 | 检查文件读写权限：`chmod 644 your_file.txt` |
+| ⚠️ 翻译速度慢 | 线程数设置过低 | 代码中调整 `max_workers` 参数（建议 3-10） |
 
 ### 1. 单文件翻译
 
@@ -549,97 +625,6 @@ A: 使用 `--provider` 或 `-p` 参数：
 translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic
 translate batch --provider deepseek
 ```
-
-## 从 v2.2 迁移到 v2.3
-
-如果你从 v2.2 或更早版本升级到 v2.3，请注意以下变更：
-
-### 主要变更
-
-1. **根目录入口文件已删除**
-   - ❌ `batch.py` - 已删除
-   - ❌ `job.py` - 已删除
-   - ❌ `merge_translated_files.py` - 已删除
-
-2. **新的 CLI 使用方式**
-
-| 旧命令 | 新命令 |
-|--------|--------|
-| `python batch.py` | `python -m translation_app.cli.main batch` 或 `translate batch` |
-| `python job.py file.txt` | `python -m translation_app.cli.main job file.txt` 或 `translate job file.txt` |
-| `python merge_translated_files.py` | `python -m translation_app.cli.main merge` 或 `translate merge` |
-
-3. **作为模块使用的导入路径变更**
-
-```python
-# 旧方式（v2.2）
-from translator import Translator, TranslateConfig
-from providers import get_provider
-
-# 新方式（v2.3）
-from translation_app.domain.translator import Translator
-from translation_app.core.translate_config import create_translate_config
-from translation_app.core.providers import get_provider
-from translation_app.infra.openai_client import build_openai_client
-```
-
-4. **配置创建方式改进**
-
-```python
-# 旧方式
-config = TranslateConfig(
-    max_workers=5,
-    max_retries=3,
-    # ... 其他参数
-)
-
-# 新方式（推荐）
-config = create_translate_config(
-    max_workers=5,
-    max_retries=3,
-    # ... 其他参数
-    client_factory=build_openai_client
-)
-```
-
-### 迁移步骤
-
-1. **安装新版本**
-```bash
-cd translation
-git pull  # 或下载新版本
-uv sync
-```
-
-2. **配置 CLI 命令（可选）**
-```bash
-uv pip install -e .
-# 现在可以使用 translate 命令
-```
-
-3. **更新你的脚本或命令**
-   - 将旧的 `python batch.py` 替换为 `translate batch`
-   - 将旧的 `python job.py` 替换为 `translate job`
-   - 如果作为模块使用，更新导入路径
-
-4. **测试**
-```bash
-# 测试单文件翻译
-translate job --help
-
-# 测试批量翻译
-translate batch --help
-```
-
-### 新功能
-
-v2.3 带来了以下架构改进：
-
-- ✅ 统一的 CLI 入口，使用更简洁
-- ✅ 消除循环依赖，分层更清晰
-- ✅ 配置类职责单一，更易维护
-- ✅ 工具模块拆分，代码组织更合理
-- ✅ 预处理逻辑独立，可复用性更强
 
 ## 许可证
 

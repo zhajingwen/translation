@@ -11,6 +11,9 @@ CLAUDE.md
 .vscode/
 .DS_Store
 files/
+translation.egg-info/
+examples/
+*.egg-info/
 *.txt
 *.pdf
 *.epub
