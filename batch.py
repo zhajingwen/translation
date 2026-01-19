@@ -27,6 +27,21 @@ def safe_delete(file_path: Path):
     except Exception as e:
         logger.error(f"删除失败 {file_path.name}: {e}")
 
+def safe_rename(file_path: Path, new_name: str):
+    """安全重命名文件，捕获异常并记录"""
+    try:
+        new_path = file_path.parent / new_name
+        # 如果目标文件已存在，不重命名
+        if new_path.exists():
+            logger.warning(f"重命名失败，目标文件已存在: {new_name}")
+            return False
+        file_path.rename(new_path)
+        logger.info(f"重命名: {file_path.name} -> {new_name}")
+        return True
+    except Exception as e:
+        logger.error(f"重命名失败 {file_path.name}: {e}")
+        return False
+
 def count_file_characters(file_path: Path):
     """
     统计文件中的文本字符数
@@ -194,7 +209,12 @@ def batch_translate(provider='akashml'):
         # 检查文件内容是否已经是中文，如果是则跳过但不删除（仅针对 .txt 文件）
         if file_path.suffix.lower() == '.txt' and is_file_chinese(file_path, threshold=0.3):
             skipped_already_chinese += 1
-            logger.info(f"[预处理] 跳过中文文件（不删除）: {file_name}")
+            # 重命名文件为 "原文件名 translated.txt" 格式
+            new_name = f"{file_path.stem} translated.txt"
+            if safe_rename(file_path, new_name):
+                logger.info(f"[预处理] 跳过中文文件并重命名: {file_name} -> {new_name}")
+            else:
+                logger.info(f"[预处理] 跳过中文文件（重命名失败）: {file_name}")
             continue
         
         # 检查文件字符数，如果小于1000则跳过并删除
