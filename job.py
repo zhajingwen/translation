@@ -7,12 +7,18 @@
 3. 自动重试机制，提高翻译成功率
 4. 进度跟踪和错误处理
 5. 支持自定义线程数和重试参数
+6. 支持多个LLM服务商（通过命令行参数选择）
 
 使用说明：
-1. 通过 TranslateConfig 的 api_key 参数传入 API Key（必需）
-2. 修改 source_origin_book_name 为要翻译的文件名
-3. 根据需要调整 TranslateConfig 参数：
+1. 命令行运行：
+   python job.py [--provider akashml|deepseek]
+   - --provider 或 -p: 选择服务商（akashml 或 deepseek），默认为 akashml
+   - 需要设置对应的环境变量：AKASHML_API_KEY 或 DEEPSEEK_API_KEY
+
+2. 作为模块使用时，通过 TranslateConfig 传入配置：
    - api_key: API密钥（必需）
+   - api_base_url: API基础URL（必需）
+   - model: 模型名称（必需）
    - max_workers: 线程数，建议3-10个（太多可能导致API限流）
    - max_retries: 重试次数，默认3次
    - retry_delay: 重试延迟，默认1秒
@@ -21,7 +27,7 @@
    - api_timeout: API超时时间，默认60秒
 
 注意事项：
-- akashml 最高支持10个并发，建议线程数不要超过10个
+- 根据所选服务商的并发限制调整线程数，建议不要超过10个
 - 网络不稳定时建议增加重试次数和延迟时间
 - 翻译大文件时建议先测试小文件确认配置合适
 - 这个版本不生成PDF文件，只生成txt文件
@@ -51,8 +57,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger('Translator')
 
-# 配置 OpenAI SDK 的日志，显示详细的重试原因
-# openai._base_client 负责重试逻辑，设置为 DEBUG 可以看到重试的详细原因
+# 配置 OpenAI SDK 的日志
+# openai._base_client 负责重试逻辑，设置为 INFO 级别以显示基本信息
 openai_logger = logging.getLogger('openai._base_client')
 openai_logger.setLevel(logging.INFO)
 
@@ -60,9 +66,14 @@ openai_logger.setLevel(logging.INFO)
 httpx_logger = logging.getLogger('httpx')
 httpx_logger.setLevel(logging.WARNING)
 
-# 使用akashml API https://playground.akashml.com/
 def get_api_client(api_key, base_url=None):
-    """获取 API 客户端，包含 API Key 验证"""
+    """
+    获取 OpenAI 兼容 API 客户端
+    
+    参数:
+        api_key: API密钥（必需）
+        base_url: API基础URL，如果为None则不设置
+    """
     if not api_key:
         raise ValueError("api_key 参数不能为空")
     return OpenAI(
@@ -108,6 +119,17 @@ class PDF(FPDF):
 class TranslateConfig:
     """
     翻译配置类
+    
+    参数:
+        max_workers: 最大线程数，默认5
+        max_retries: 最大重试次数，默认3
+        retry_delay: 重试延迟时间（秒），默认1
+        chunk_size: 文本切割阈值（字符数），默认8000
+        min_chunk_size: 最小切割长度（字符数），默认500
+        api_timeout: API超时时间（秒），默认60
+        api_base_url: API基础URL（必需）
+        model: 模型名称（必需）
+        api_key: API密钥（必需）
     """
     def __init__(self, max_workers=5, max_retries=3, retry_delay=1,
                  chunk_size=8000, min_chunk_size=500, api_timeout=60,
@@ -131,19 +153,24 @@ SENTENCE_END_PUNCTUATION = ('。', '！', '？', '…', '.', '!', '?')
 class Translate:
     """
     翻译类
-
-    DeepSeek：每100页大概2毛钱
+    
+    支持多线程并行翻译，自动重试机制，进度跟踪和错误处理
     """
     def __init__(self, source_file, config=None):
         """
-        source_file：需要翻译的书名
-        config：翻译配置，如果为None则使用默认配置
+        初始化翻译实例
+        
+        参数:
+            source_file: 需要翻译的文件名（支持相对路径，会自动处理 files/ 前缀）
+            config: 翻译配置（TranslateConfig 实例），必需参数，不能为None
         """
     
         if 'files/' in source_file:
             source_file = source_file.split('files/')[1]
-            
-        self.config = config or TranslateConfig()
+        
+        if config is None:
+            raise ValueError("config 参数是必需的，必须传入 TranslateConfig 实例")
+        self.config = config
         # 初始化 API 客户端，使用配置中的 api_key 和 base_url
         self.client = get_api_client(self.config.api_key, self.config.api_base_url)
         self.text_list = []
@@ -156,7 +183,8 @@ class Translate:
         base_name = os.path.splitext(source_file)[0]
         # 翻译结果输出为txt文件
         self.output_txt = f"{directory}{base_name} translated.txt"
-        # 翻译结果输出为PDF文件
+        # 注意：当前版本不生成PDF文件，只生成txt文件
+        # 保留此变量以备将来扩展使用
         self.output_pdf = f"{directory}{base_name} translated.pdf"
 
     def extract_text_from_pdf(self, interupt=None):
@@ -228,9 +256,13 @@ class Translate:
     
     def extract_text_from_epub(self, interupt=None):
         """
-        解析epub文件
-        抽取每一页的PDF提交给chatgpt翻译
-        interupt：上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
+        从EPUB文件中提取文本内容
+        
+        参数:
+            interupt: 上一次翻译异常导致退出的页码，None表示没有任何异常导致中途退出
+            
+        返回:
+            文本内容列表，每个元素是一个chunk
         """
         # 读取 EPUB 文件
         try:
@@ -581,9 +613,12 @@ class Translate:
 
     def extract_text_from_txt(self):
         """
-        解析txt文件
-        抽取txt文件提交给chatgpt翻译
+        从TXT文件中提取文本内容
+        
         使用配置的 chunk_size 进行文本切割
+        
+        返回:
+            文本内容列表，每个元素是一个chunk
         """
         with open(self.file_path, 'r', encoding='utf-8') as file:
             content = file.read()
