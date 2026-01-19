@@ -11,9 +11,9 @@
 
 使用说明：
 1. 命令行运行：
-   python job.py [--provider akashml|deepseek]
-   - --provider 或 -p: 选择服务商（akashml 或 deepseek），默认为 akashml
-   - 需要设置对应的环境变量：AKASHML_API_KEY 或 DEEPSEEK_API_KEY
+   python job.py [--provider akashml|deepseek|hyperbolic]
+   - --provider 或 -p: 选择服务商（akashml、deepseek 或 hyperbolic），默认为 akashml
+   - 需要设置对应的环境变量：AKASHML_API_KEY、DEEPSEEK_API_KEY 或 HYPERBOLIC_API_KEY
 
 2. 作为模块使用时，通过 TranslateConfig 传入配置：
    - api_key: API密钥（必需）
@@ -880,9 +880,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek'],
+        choices=['akashml', 'deepseek', 'hyperbolic'],
         default='akashml',
-        help='选择服务商: akashml 或 deepseek (默认: akashml)'
+        help='选择服务商: akashml、deepseek 或 hyperbolic (默认: akashml)'
     )
     args = parser.parse_args()
     
@@ -895,8 +895,12 @@ if __name__ == '__main__':
         LLM_API_BASE_URL = 'https://api.deepseek.com'
         LLM_MODEL = 'deepseek-chat'
         LLM_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+    elif args.provider == 'hyperbolic':
+        LLM_API_BASE_URL = 'https://api.hyperbolic.xyz/v1'
+        LLM_MODEL = 'openai/gpt-oss-20b'
+        LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
     else:
-        raise ValueError(f"不支持的服务商: {args.provider}，请选择 'akashml' 或 'deepseek'")
+        raise ValueError(f"不支持的服务商: {args.provider}，请选择 'akashml'、'deepseek' 或 'hyperbolic'")
     
     source_origin_book_name = "files/070 - Hey Tech, Come to Healthcare.txt"
     

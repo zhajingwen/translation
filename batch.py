@@ -85,7 +85,7 @@ def batch_translate(provider='akashml'):
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
     
     Args:
-        provider: 服务商选择，可选值为 'akashml' 或 'deepseek'，默认为 'akashml'
+        provider: 服务商选择，可选值为 'akashml'、'deepseek' 或 'hyperbolic'，默认为 'akashml'
     """
     # 根据服务商选择配置
     if provider == 'akashml':
@@ -96,8 +96,12 @@ def batch_translate(provider='akashml'):
         LLM_API_BASE_URL = 'https://api.deepseek.com'
         LLM_MODEL = 'deepseek-chat'
         LLM_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+    elif provider == 'hyperbolic':
+        LLM_API_BASE_URL = 'https://api.hyperbolic.xyz/v1'
+        LLM_MODEL = 'openai/gpt-oss-20b'
+        LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
     else:
-        raise ValueError(f"不支持的服务商: {provider}，请选择 'akashml' 或 'deepseek'")
+        raise ValueError(f"不支持的服务商: {provider}，请选择 'akashml'、'deepseek' 或 'hyperbolic'")
     
     # 可以根据API限制和网络情况调整参数
     #  model="Qwen/Qwen3-30B-A3B", 上下文限制为32K
@@ -268,9 +272,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek'],
+        choices=['akashml', 'deepseek', 'hyperbolic'],
         default='akashml',
-        help='选择服务商: akashml 或 deepseek (默认: akashml)'
+        help='选择服务商: akashml、deepseek 或 hyperbolic (默认: akashml)'
     )
     args = parser.parse_args()
     

@@ -10,7 +10,7 @@
 - ✅ **多线程并行翻译**：大幅提升翻译速度，可自定义线程数
 - ✅ **智能文本切割**：根据句子边界智能切割文本，保持语义完整性
 - ✅ **自动重试机制**：网络不稳定时自动重试，提高成功率
-- ✅ **多服务商支持**：支持 AkashML 和 DeepSeek 两个 LLM 服务商
+- ✅ **多服务商支持**：支持 AkashML、DeepSeek 和 Hyperbolic 三个 LLM 服务商
 - ✅ **批量处理**：自动扫描目录并批量翻译文件
 - ✅ **文件合并**：自动合并小型翻译文件，便于管理
 - ✅ **进度跟踪**：实时显示翻译进度和统计信息
@@ -57,6 +57,9 @@ export AKASHML_API_KEY="your_akashml_api_key"
 
 # DeepSeek 服务
 export DEEPSEEK_API_KEY="your_deepseek_api_key"
+
+# Hyperbolic 服务
+export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 ```
 
 ## 使用方法
@@ -72,6 +75,7 @@ python job.py
 # 或指定服务商
 python job.py --provider akashml
 python job.py --provider deepseek
+python job.py --provider hyperbolic
 ```
 
 **注意**：需要在 `job.py` 的 `__main__` 部分修改 `source_origin_book_name` 变量来指定要翻译的文件。
@@ -108,6 +112,7 @@ python batch.py
 # 指定服务商
 python batch.py --provider akashml
 python batch.py --provider deepseek
+python batch.py --provider hyperbolic
 ```
 
 **批量翻译的自动化流程**：
@@ -195,12 +200,21 @@ LLM_MODEL = 'deepseek-chat'
 LLM_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
 ```
 
+#### Hyperbolic
+
+```python
+LLM_API_BASE_URL = 'https://api.hyperbolic.xyz/v1'
+LLM_MODEL = 'openai/gpt-oss-20b'
+LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
+```
+
 ### 环境变量
 
 | 变量名 | 说明 | 必需 |
 |--------|------|------|
 | `AKASHML_API_KEY` | AkashML API 密钥 | 使用 AkashML 时必需 |
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | 使用 DeepSeek 时必需 |
+| `HYPERBOLIC_API_KEY` | Hyperbolic API 密钥 | 使用 Hyperbolic 时必需 |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
 | `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览 | 可选，默认 true |
 
