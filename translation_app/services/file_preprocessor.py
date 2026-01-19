@@ -13,8 +13,8 @@ from dataclasses import dataclass
 
 from translation_app.core.config import CharLimits, FileFormats
 from translation_app.core.file_ops import safe_delete, safe_rename
-from translation_app.core.file_analyzer import count_file_characters, is_file_chinese
 from translation_app.core.path_utils import get_translated_path
+from translation_app.domain.file_analyzer import count_file_characters, is_file_chinese
 
 
 logger = logging.getLogger('FilePreprocessor')

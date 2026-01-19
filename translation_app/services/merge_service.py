@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 
 from translation_app.core.config import CharLimits, PathConfig
-from translation_app.core.file_analyzer import count_chinese_characters
+from translation_app.domain.file_analyzer import count_chinese_characters
 from translation_app.domain.file_merger import FileMerger, MergeGroup
 
 

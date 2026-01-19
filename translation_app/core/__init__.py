@@ -31,11 +31,6 @@ from translation_app.core.file_ops import (
     safe_delete,
     safe_rename,
 )
-from translation_app.core.file_analyzer import (
-    count_file_characters,
-    is_file_chinese,
-    count_chinese_characters,
-)
 from translation_app.core.path_utils import (
     normalize_file_path,
     get_translated_filename,
@@ -66,9 +61,7 @@ __all__ = [
     # file_ops
     'safe_delete',
     'safe_rename',
-    'count_file_characters',
-    'is_file_chinese',
-    'count_chinese_characters',
+    # path_utils
     'normalize_file_path',
     'get_translated_filename',
     'get_translated_path',

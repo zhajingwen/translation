@@ -4,8 +4,6 @@
 文件分析模块
 
 提供文件内容分析功能：字符数统计、中文检测等
-
-注意：此模块复用 domain/extractors 进行文本提取，避免重复代码
 """
 
 import logging
@@ -13,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from translation_app.core.config import CharLimits
+from translation_app.domain.extractors import get_extractor
 
 
 logger = logging.getLogger('FileAnalyzer')
@@ -66,9 +65,6 @@ def _count_using_extractor(file_path: Path, file_type: str) -> int:
     Returns:
         字符数
     """
-    # 延迟导入，避免循环依赖
-    from translation_app.domain.extractors import get_extractor
-    
     extractor = get_extractor(str(file_path))
     content_list = extractor.extract_text()
     
