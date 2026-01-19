@@ -65,8 +65,6 @@ def get_api_client(api_key, base_url=None):
     """获取 API 客户端，包含 API Key 验证"""
     if not api_key:
         raise ValueError("api_key 参数不能为空")
-    if base_url is None:
-        base_url = os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1')
     return OpenAI(
         api_key=api_key,
         base_url=base_url
@@ -122,8 +120,8 @@ class TranslateConfig:
         self.chunk_size = chunk_size        # 文本切割阈值（字符数）
         self.min_chunk_size = min_chunk_size  # 最小切割长度
         self.api_timeout = api_timeout      # API 超时时间(秒)
-        self.api_base_url = api_base_url or os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1')
-        self.model = model or os.environ.get('LLM_MODEL', 'Qwen/Qwen3-30B-A3B')
+        self.api_base_url = api_base_url
+        self.model = model
         self.api_key = api_key
 
 
