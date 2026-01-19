@@ -8,7 +8,7 @@ import logging
 import time
 
 from translation_app.domain.translator import Translator
-from translation_app.domain.file_preprocessor import FilePreprocessor
+from translation_app.services.file_preprocessor import FilePreprocessor
 from translation_app.core.translate_config import create_translate_config
 from translation_app.infra.openai_client import build_openai_client
 from translation_app.services.merge_service import merge_entrance

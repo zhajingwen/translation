@@ -1,31 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-文档合并服务 - 合并小型翻译文件
+文档合并服务
+
+提供文件扫描、合并、删除的编排逻辑
 """
 
 import logging
-import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 from translation_app.core.config import CharLimits, PathConfig
 from translation_app.core.file_analyzer import count_chinese_characters
+from translation_app.domain.file_merger import FileMerger, MergeGroup
 
 
-logger = logging.getLogger('FileMerge')
+logger = logging.getLogger('MergeService')
 
 
-def natural_sort_key(path: Path) -> list:
+def read_file_content(file_path: Path) -> Optional[str]:
     """
-    自然排序键函数，支持数字前缀的正确排序
+    读取文件内容，自动尝试多种编码
+    
+    Args:
+        file_path: 文件路径
+    
+    Returns:
+        文件内容，读取失败返回 None
     """
-    return [
-        int(text) if text.isdigit() else text.lower()
-        for text in re.split(r'(\d+)', path.name)
-    ]
+    for encoding in ['utf-8', 'gbk', 'gb2312']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            continue
+    return None
 
 
 def scan_and_filter_files(
@@ -34,13 +45,19 @@ def scan_and_filter_files(
 ) -> List[Tuple[Path, int]]:
     """
     扫描目录，筛选符合条件的文件
+    
+    Args:
+        files_dir: 目录路径
+        char_limit: 字符数上限
+    
+    Returns:
+        [(文件路径, 中文字符数), ...] 列表
     """
     if char_limit is None:
         char_limit = CharLimits.SMALL_FILE_LIMIT
 
     logger.info(f"扫描目录: {files_dir}")
 
-    # 检查目录是否存在
     if not files_dir.exists():
         logger.error(f"目录不存在: {files_dir}")
         return []
@@ -58,21 +75,11 @@ def scan_and_filter_files(
     file_char_counts = []
     for file_path in all_files:
         try:
-            # 尝试多种编码读取文件
-            content = None
-            for encoding in ['utf-8', 'gbk', 'gb2312']:
-                try:
-                    with open(file_path, 'r', encoding=encoding) as f:
-                        content = f.read()
-                    break
-                except UnicodeDecodeError:
-                    continue
-
+            content = read_file_content(file_path)
             if content is None:
                 logger.warning(f"无法读取文件（编码错误）: {file_path.name}")
                 continue
 
-            # 统计中文字符数
             char_count = count_chinese_characters(content)
             file_char_counts.append((file_path, char_count))
             logger.debug(f"{file_path.name}: {char_count} 个中文字符")
@@ -81,18 +88,12 @@ def scan_and_filter_files(
             logger.error(f"读取文件失败 {file_path.name}: {e}")
             continue
 
-    # 筛选出中文字数 < char_limit 的文件
-    filtered_files = [
-        (path, count) for path, count in file_char_counts
-        if count < char_limit
-    ]
-
-    # 按文件名自然排序
-    filtered_files.sort(key=lambda x: natural_sort_key(x[0]))
+    # 使用 FileMerger 进行筛选和排序
+    merger = FileMerger(merge_limit=CharLimits.MERGE_FILE_LIMIT)
+    filtered_files = merger.filter_by_char_limit(file_char_counts, char_limit)
+    filtered_files = merger.sort_files(filtered_files)
 
     logger.info(f"筛选后: {len(filtered_files)} 个文件 (< {char_limit} 字)")
-
-    # 显示筛选出的文件
     for path, count in filtered_files:
         logger.info(f"  - {path.name}: {count:,} 字")
 
@@ -106,6 +107,14 @@ def merge_files(
 ) -> List[Path]:
     """
     按中文字数限制合并文件
+    
+    Args:
+        file_list: [(文件路径, 字符数), ...] 列表
+        output_dir: 输出目录
+        merge_limit: 合并字数限制
+    
+    Returns:
+        生成的合并文件路径列表
     """
     if merge_limit is None:
         merge_limit = CharLimits.MERGE_FILE_LIMIT
@@ -124,81 +133,40 @@ def merge_files(
         logger.error(f"创建输出目录失败: {e}")
         return []
 
+    # 使用 FileMerger 进行分组
+    merger = FileMerger(merge_limit=merge_limit)
+    groups = merger.group_files(file_list)
+
+    # 写入合并文件
     merged_files = []
-    combined_index = 1
-    current_content = []
-    current_chars = 0
-    current_file_names = []
-
-    for file_path, char_count in file_list:
-        # 如果添加当前文件后会超过限制
-        if current_chars > 0 and current_chars + char_count > merge_limit:
-            # 保存当前合并文件
-            output_file = output_dir / f"combined_{combined_index}.txt"
-            try:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write('\n\n'.join(current_content))
-
-                logger.info(
-                    f"生成: {output_file.name} "
-                    f"({current_chars:,} 字, 包含 {len(current_file_names)} 个文件)"
-                )
-                logger.info(f"  包含文件: {', '.join(current_file_names)}")
-
-                merged_files.append(output_file)
-
-                # 重置状态，开始新的合并文件
-                combined_index += 1
-                current_content = []
-                current_chars = 0
-                current_file_names = []
-
-            except Exception as e:
-                logger.error(f"保存合并文件失败 {output_file}: {e}")
-                return merged_files
-
-        # 读取文件内容并添加到当前合并集合
+    for index, group in enumerate(groups, start=1):
+        output_file = output_dir / f"combined_{index}.txt"
+        
         try:
-            # 尝试多种编码读取
-            content = None
-            for encoding in ['utf-8', 'gbk', 'gb2312']:
-                try:
-                    with open(file_path, 'r', encoding=encoding) as f:
-                        content = f.read()
-                    break
-                except UnicodeDecodeError:
-                    continue
-
-            if content is None:
-                logger.warning(f"无法读取文件（跳过）: {file_path.name}")
-                continue
-
-            # 直接添加文件内容
-            current_content.append(content)
-            current_chars += char_count
-            current_file_names.append(file_path.name)
-
-        except Exception as e:
-            logger.error(f"读取文件失败 {file_path.name}: {e}")
-            continue
-
-    # 保存最后一个合并文件
-    if current_content:
-        output_file = output_dir / f"combined_{combined_index}.txt"
-        try:
+            # 读取组内所有文件内容
+            contents = []
+            for file_path, _ in group.files:
+                content = read_file_content(file_path)
+                if content is not None:
+                    contents.append(content)
+                else:
+                    logger.warning(f"无法读取文件（跳过）: {file_path.name}")
+            
+            # 写入合并文件
             with open(output_file, 'w', encoding='utf-8') as f:
-                f.write('\n\n'.join(current_content))
+                f.write('\n\n'.join(contents))
 
             logger.info(
                 f"生成: {output_file.name} "
-                f"({current_chars:,} 字, 包含 {len(current_file_names)} 个文件)"
+                f"({group.total_chars:,} 字, 包含 {group.file_count} 个文件)"
             )
-            logger.info(f"  包含文件: {', '.join(current_file_names)}")
+            logger.info(f"  包含文件: {', '.join(group.file_names)}")
 
             merged_files.append(output_file)
 
         except Exception as e:
             logger.error(f"保存合并文件失败 {output_file}: {e}")
+            continue
 
     return merged_files
 
@@ -209,6 +177,13 @@ def delete_original_files(
 ) -> Dict[str, bool]:
     """
     安全删除原始文件
+    
+    Args:
+        file_list: [(文件路径, 字符数), ...] 列表
+        backup: 是否备份
+    
+    Returns:
+        {文件名: 是否删除成功} 字典
     """
     if not file_list:
         logger.info("没有文件需要删除")
@@ -217,7 +192,6 @@ def delete_original_files(
     logger.info(f"准备删除 {len(file_list)} 个原始文件")
 
     # 备份文件
-    backup_dir = None
     if backup:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         backup_dir = PathConfig.BACKUP_DIR / timestamp
@@ -226,7 +200,6 @@ def delete_original_files(
             backup_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"备份目录: {backup_dir}")
 
-            # 备份所有文件
             for file_path, _ in file_list:
                 try:
                     shutil.copy2(file_path, backup_dir / file_path.name)
@@ -252,7 +225,6 @@ def delete_original_files(
             delete_results[file_path.name] = False
             logger.error(f"删除失败 {file_path.name}: {e}")
 
-    # 统计结果
     success_count = sum(1 for v in delete_results.values() if v)
     logger.info(f"删除完成: 成功 {success_count}/{len(file_list)}")
 
@@ -265,13 +237,17 @@ def merge_entrance(
     backup: bool = False
 ):
     """
-    主流程：扫描 → 筛选 → 合并 → 删除（可选）
+    合并服务入口：扫描 → 筛选 → 合并 → 删除（可选）
+    
+    Args:
+        files_dir: 文件目录
+        delete_originals: 是否删除原文件
+        backup: 是否备份原文件
     """
     logger.info("=" * 80)
-    logger.info("文档合并脚本启动")
+    logger.info("文档合并服务启动")
     logger.info("=" * 80)
 
-    # 转换为 Path 对象
     files_path = Path(files_dir)
     output_path = files_path / "combined"
 
@@ -310,14 +286,10 @@ def merge_entrance(
     # 步骤4：删除原文件（可选）
     if delete_originals:
         logger.info("\n步骤 4/4: 删除原文件")
-        delete_original_files(
-            file_list=filtered_files,
-            backup=backup
-        )
+        delete_original_files(file_list=filtered_files, backup=backup)
     else:
         logger.info("\n步骤 4/4: 跳过删除原文件（保留了源文件）")
 
     logger.info("\n" + "=" * 80)
-    logger.info("文档合并脚本完成")
+    logger.info("文档合并服务完成")
     logger.info("=" * 80)
-

@@ -327,7 +327,7 @@ python examples/ollama_local_qwen2.py
 | `model` | str | 必需 | 模型名称 |
 | `api_key` | str | 必需 | API 密钥 |
 
-**注意**：`job.py` 和 `batch.py` 中的默认配置可能不同，请根据实际使用情况调整。
+**注意**：单文件翻译（job）和批量翻译（batch）的默认配置可能不同，请根据实际使用情况调整。配置定义在 `core/config.py` 的 `TranslationDefaults` 类中。
 
 ### 服务商配置
 
@@ -362,8 +362,17 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 | `AKASHML_API_KEY` | AkashML API 密钥 | 使用 AkashML 时必需 |
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | 使用 DeepSeek 时必需 |
 | `HYPERBOLIC_API_KEY` | Hyperbolic API 密钥 | 使用 Hyperbolic 时必需 |
+| `TRANSLATION_WORK_DIR` | 工作目录路径 | 可选，默认 `files` |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
 | `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览（true/false） | 可选，默认 true |
+
+**自定义工作目录示例**：
+
+```bash
+# 使用自定义工作目录
+export TRANSLATION_WORK_DIR="/path/to/custom/files"
+translate batch
+```
 
 ## 项目结构
 
@@ -371,17 +380,21 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 translation/
 ├── pyproject.toml              # 项目依赖配置
 ├── README.md                   # 项目文档
-├── batch.py                    # 批量翻译 CLI 入口
-├── job.py                      # 单文件翻译 CLI 入口
-├── merge_translated_files.py  # 文件合并 CLI 入口
 ├── translation_app/            # 核心应用包
 │   ├── __init__.py
-│   ├── core/                   # 核心配置和工具
+│   ├── cli/                    # 命令行接口
 │   │   ├── __init__.py
-│   │   ├── config.py           # 配置管理模块
-│   │   ├── providers.py        # 服务商配置模块
-│   │   └── utils.py            # 工具函数模块
-│   ├── domain/                 # 业务逻辑层
+│   │   ├── main.py             # 统一 CLI 入口
+│   │   └── logging_setup.py    # 日志配置
+│   ├── core/                   # 核心配置层
+│   │   ├── __init__.py
+│   │   ├── config.py           # 配置管理（支持环境变量）
+│   │   ├── providers.py        # 服务商配置
+│   │   ├── translate_config.py # 翻译配置
+│   │   ├── file_analyzer.py    # 文件分析（复用 extractors）
+│   │   ├── file_ops.py         # 文件操作
+│   │   └── path_utils.py       # 路径工具
+│   ├── domain/                 # 领域层（核心业务逻辑）
 │   │   ├── __init__.py
 │   │   ├── extractors/         # 文本提取器
 │   │   │   ├── __init__.py
@@ -389,35 +402,23 @@ translation/
 │   │   │   ├── pdf_extractor.py
 │   │   │   ├── epub_extractor.py
 │   │   │   └── txt_extractor.py
+│   │   ├── file_merger.py      # 文件合并算法
 │   │   ├── text_processor.py   # 文本处理器
 │   │   └── translator.py       # 翻译核心逻辑
-│   ├── services/               # 应用服务层
+│   ├── services/               # 服务层（流程编排）
 │   │   ├── __init__.py
 │   │   ├── batch_service.py    # 批量翻译服务
 │   │   ├── job_service.py      # 单文件翻译服务
-│   │   └── merge_service.py    # 文件合并服务
-│   ├── infra/                  # 基础设施层
-│   │   ├── __init__.py
-│   │   └── openai_client.py    # OpenAI 客户端封装
-│   └── cli/                    # 命令行接口
+│   │   ├── merge_service.py    # 文件合并服务
+│   │   └── file_preprocessor.py # 文件预处理服务
+│   └── infra/                  # 基础设施层
 │       ├── __init__.py
-│       ├── main.py             # 统一 CLI 入口
-│       ├── batch.py            # 批量翻译命令
-│       ├── job.py              # 单文件翻译命令
-│       ├── merge.py            # 文件合并命令
-│       └── logging_setup.py    # 日志配置
-├── tests/                      # 测试目录
-│   ├── unit/                   # 单元测试
-│   │   ├── test_config.py
-│   │   ├── test_utils.py
-│   │   └── test_text_processor.py
-│   ├── integration/            # 集成测试
-│   └── conftest.py             # pytest 配置
+│       └── openai_client.py    # OpenAI 客户端封装
 ├── examples/                   # 示例脚本
 │   ├── akash_llm.py            # AkashML API 测试
 │   ├── hyperbolic.py           # Hyperbolic API 测试
 │   └── ollama_local_qwen2.py   # 本地 Ollama 翻译测试
-└── files/                      # 工作目录
+└── files/                      # 工作目录（可通过环境变量覆盖）
     ├── combined/               # 合并后的文件目录
     └── .backup/                # 备份目录
 ```
@@ -426,47 +427,75 @@ translation/
 
 项目采用清晰的分层架构，职责明确：
 
-#### 核心层 (core/)
-- **config.py**: 统一管理所有配置项（路径、阈值、日志、翻译默认值等）
-- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic）
-- **utils.py**: 提供通用工具函数（文件操作、字符统计、中文检测、路径处理等）
+```
+┌─────────────────────────────────────────────────────────┐
+│                      CLI 层                              │
+│                    (main.py)                             │
+└─────────────────────────┬───────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                    服务层 (services/)                    │
+│  batch_service │ job_service │ merge_service            │
+│                │ file_preprocessor                      │
+└─────────────────────────┬───────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                   领域层 (domain/)                       │
+│  Translator │ TextProcessor │ FileMerger │ Extractors   │
+└─────────────────────────┬───────────────────────────────┘
+                          ▼
+┌──────────────────────────────────┬──────────────────────┐
+│         配置层 (core/)           │   基础设施 (infra/)   │
+│  config │ providers │ analyzers  │   openai_client      │
+└──────────────────────────────────┴──────────────────────┘
+```
 
-#### 业务逻辑层 (domain/)
+#### 配置层 (core/)
+- **config.py**: 统一管理所有配置项，支持环境变量覆盖
+- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic）
+- **translate_config.py**: 翻译配置类（组合模式）
+- **file_analyzer.py**: 文件分析（复用 extractors 进行内容提取）
+- **file_ops.py**: 安全的文件操作（删除、重命名）
+- **path_utils.py**: 路径处理工具
+
+#### 领域层 (domain/)
 - **extractors/**: 文本提取器，支持 PDF、EPUB、TXT 格式
   - 使用策略模式，通过 `get_extractor()` 工厂函数获取对应提取器
   - 基于 `BaseExtractor` 抽象基类，支持扩展新格式
 - **text_processor.py**: 智能文本切割，保持句子完整性
+- **file_merger.py**: 文件合并核心算法（分组、排序、筛选）
 - **translator.py**: 核心翻译逻辑
   - 多线程并行翻译
   - 自动重试机制
   - 进度跟踪和统计
   - 支持依赖注入（client_factory）
 
-#### 应用服务层 (services/)
+#### 服务层 (services/)
 - **batch_service.py**: 批量翻译流程编排
 - **job_service.py**: 单文件翻译流程编排
-- **merge_service.py**: 文件合并流程编排
+- **merge_service.py**: 文件合并流程编排（调用 FileMerger）
+- **file_preprocessor.py**: 文件预处理（筛选、检测、清理）
 
 #### 基础设施层 (infra/)
 - **openai_client.py**: OpenAI 客户端创建和管理
 
 #### 命令行接口 (cli/)
 - **main.py**: 统一 CLI 入口，支持子命令（job、batch、merge）
-- **batch.py/job.py/merge.py**: 独立的命令行工具
 - **logging_setup.py**: 日志配置初始化
 
 #### 依赖关系
 ```
-cli → services → domain ← infra
+cli → services → domain
          ↓         ↓
-       core    ← core
+       core    ← core ← infra
 ```
 
 - **cli** 依赖 **services**
 - **services** 依赖 **domain** 和 **core**
-- **domain** 依赖 **core**（配置和工具）
+- **domain** 依赖 **core**（配置）
+- **core/file_analyzer** 依赖 **domain/extractors**（复用提取逻辑）
 - **infra** 独立，被 **services** 使用
-- **core** 被所有层使用，不依赖其他层
+- **core** 被所有层使用，不依赖其他层（除 file_analyzer）
 
 ## 工作流程
 
@@ -507,14 +536,13 @@ cli → services → domain ← infra
 ### 性能优化
 
 - **线程数设置**：根据 API 服务商的并发限制调整，建议不超过 10 个线程
-  - `batch.py` 默认使用 8 个线程
-  - `job.py` 默认使用 1 个线程（可在代码中修改）
+  - 批量翻译（batch）默认使用 8 个线程
+  - 单文件翻译（job）默认使用 1 个线程
 - **文本切割**：`chunk_size` 应根据模型的最大上下文长度调整
-  - AkashML Qwen/Qwen3-30B-A3B：上下文限制 32K，`batch.py` 默认 `chunk_size=3000`
-  - `job.py` 默认 `chunk_size=50000`，`min_chunk_size=30000`（适合大文件）
+  - AkashML Qwen/Qwen3-30B-A3B：上下文限制 32K，批量翻译默认 `chunk_size=3000`
+  - 单文件翻译默认 `chunk_size=50000`，`min_chunk_size=30000`（适合大文件）
 - **重试策略**：网络不稳定时建议增加重试次数和延迟时间
-  - `batch.py` 默认 `max_retries=6`，`retry_delay=120` 秒
-  - `job.py` 默认 `max_retries=6`，`retry_delay=120` 秒
+  - 默认 `max_retries=6`，`retry_delay=120` 秒
 
 ### 错误处理
 
@@ -566,20 +594,26 @@ export LOG_SHOW_CONTENT=false  # 不显示翻译内容预览（默认 true）
 ### 示例 1：翻译单个 PDF 文件
 
 ```python
-from translator import Translator, TranslateConfig
-from providers import get_provider
+from translation_app.domain.translator import Translator
+from translation_app.core.translate_config import create_translate_config
+from translation_app.core.providers import get_provider
+from translation_app.infra.openai_client import build_openai_client
 
 # 获取服务商配置
 provider_config = get_provider('akashml')
 
-config = TranslateConfig(
+# 创建翻译配置
+config = create_translate_config(
     max_workers=5,
     max_retries=3,
     retry_delay=2,
     chunk_size=8000,
+    min_chunk_size=500,
+    api_timeout=60,
     api_base_url=provider_config.api_base_url,
     model=provider_config.model,
-    api_key=provider_config.api_key
+    api_key=provider_config.api_key,
+    client_factory=build_openai_client
 )
 
 translator = Translator("document.pdf", config)
@@ -607,7 +641,7 @@ A: 可以适当增加 `max_workers` 线程数，但要注意 API 服务商的并
 A: 失败的内容会被标记并保留原文，可以检查日志查看失败原因，通常是网络问题或文本过长。
 
 **Q: 如何调整文本切割大小？**  
-A: 根据使用的模型上下文限制调整 `chunk_size` 和 `min_chunk_size` 参数。注意 `job.py` 和 `batch.py` 的默认配置不同，可根据需要修改。
+A: 根据使用的模型上下文限制调整 `chunk_size` 和 `min_chunk_size` 参数。默认配置定义在 `core/config.py` 的 `TranslationDefaults` 类中，单文件翻译和批量翻译使用不同的默认值。
 
 **Q: 翻译后的文件在哪里？**  
 A: 翻译结果保存在 `files/` 目录下，文件名格式为 `原文件名 translated.txt`。合并后的文件在 `files/combined/` 目录。

@@ -4,15 +4,13 @@
 文件分析模块
 
 提供文件内容分析功能：字符数统计、中文检测等
+
+注意：此模块复用 domain/extractors 进行文本提取，避免重复代码
 """
 
 import logging
 from pathlib import Path
 from typing import Optional
-
-from PyPDF2 import PdfReader
-from ebooklib import epub
-from bs4 import BeautifulSoup
 
 from translation_app.core.config import CharLimits
 
@@ -38,9 +36,9 @@ def count_file_characters(file_path: Path) -> int:
         if file_ext == '.txt':
             return _count_txt_characters(file_path)
         elif file_ext == '.pdf':
-            return _count_pdf_characters(file_path)
+            return _count_using_extractor(file_path, 'pdf')
         elif file_ext == '.epub':
-            return _count_epub_characters(file_path)
+            return _count_using_extractor(file_path, 'epub')
         else:
             logger.warning(f"不支持的文件类型: {file_ext}")
             return -1
@@ -57,36 +55,28 @@ def _count_txt_characters(file_path: Path) -> int:
     return len(content)
 
 
-def _count_pdf_characters(file_path: Path) -> int:
-    """统计 PDF 文件字符数"""
-    reader = PdfReader(file_path)
+def _count_using_extractor(file_path: Path, file_type: str) -> int:
+    """
+    使用提取器统计文件字符数
+    
+    Args:
+        file_path: 文件路径
+        file_type: 文件类型 ('pdf' 或 'epub')
+    
+    Returns:
+        字符数
+    """
+    # 延迟导入，避免循环依赖
+    from translation_app.domain.extractors import get_extractor
+    
+    extractor = get_extractor(str(file_path))
+    content_list = extractor.extract_text()
+    
     total_chars = 0
-    for page in reader.pages:
-        page_text = page.extract_text().strip()
-        if page_text:
-            total_chars += len(page_text)
-    return total_chars
-
-
-def _count_epub_characters(file_path: Path) -> int:
-    """统计 EPUB 文件字符数"""
-    book = epub.read_epub(str(file_path), options={"ignore_ncx": True})
-    total_chars = 0
-    for item in book.get_items():
-        # 只处理HTML/XHTML内容
-        if item.media_type in ['application/xhtml+xml', 'application/xhtml', 
-                               'text/html', 'text/xhtml']:
-            try:
-                soup = BeautifulSoup(item.get_content(), 'html.parser')
-                # 移除script和style标签
-                for script in soup(["script", "style"]):
-                    script.decompose()
-                page_text = soup.get_text().strip()
-                if page_text:
-                    total_chars += len(page_text)
-            except Exception as e:
-                logger.debug(f"读取EPUB项失败: {e}")
-                continue
+    for content in content_list:
+        if content:
+            total_chars += len(content.strip())
+    
     return total_chars
 
 
@@ -112,11 +102,10 @@ def is_file_chinese(file_path: Path, threshold: Optional[float] = None) -> bool:
         return False
     
     try:
-        # 读取txt文件
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 统计中文字符数量（Unicode 范围 \u4e00 - \u9fff）
+        # 统计中文字符数量
         chinese_count = 0
         total_chars = 0
         for char in content:
@@ -125,11 +114,9 @@ def is_file_chinese(file_path: Path, threshold: Optional[float] = None) -> bool:
                 if '\u4e00' <= char <= '\u9fff':
                     chinese_count += 1
         
-        # 如果总字符数为0，返回False
         if total_chars == 0:
             return False
         
-        # 计算中文字符占比
         chinese_ratio = chinese_count / total_chars
         return chinese_ratio >= threshold
             
@@ -149,7 +136,7 @@ def count_chinese_characters(text: str) -> int:
         中文字符数（仅统计汉字，不含标点、空格、英文）
     
     实现：
-        使用 Unicode 范围 \u4e00 - \u9fff 判断中文字符
+        使用 Unicode 范围 \\u4e00 - \\u9fff 判断中文字符
     """
     count = 0
     for char in text:
