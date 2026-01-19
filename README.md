@@ -49,7 +49,7 @@ uv sync
 或者使用传统的 pip 安装：
 
 ```bash
-pip install beautifulsoup4 ebooklib fpdf2 openai pypdf2 requests retry
+pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 ```
 
 ### 环境变量配置
@@ -266,7 +266,6 @@ translation/
 │   ├── epub_extractor.py      # EPUB 提取器
 │   └── txt_extractor.py       # TXT 提取器
 ├── pyproject.toml              # 项目依赖配置
-├── kaiti.ttf                   # 中文字体文件（保留，当前版本不生成PDF）
 ├── files/                      # 文件目录
 │   ├── combined/              # 合并后的文件目录
 │   └── ...                    # 待翻译和已翻译的文件

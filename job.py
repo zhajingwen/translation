@@ -49,39 +49,6 @@ httpx_logger.setLevel(logging.WARNING)
 # 保留旧的导入方式以向后兼容
 Translate = Translator
 
-# 保留旧的 PDF 类（虽然不再使用，但为了兼容性保留）
-from fpdf import FPDF
-import os
-
-
-class PDF(FPDF):
-    """保留用于向后兼容（当前版本不生成PDF）"""
-    def __init__(self):
-        super().__init__()
-        self.font_loaded = False
-        try:
-            font_paths = [
-                './kaiti.ttf',
-                os.path.join(os.path.dirname(__file__), 'kaiti.ttf'),
-                '/usr/share/fonts/truetype/kaiti.ttf',
-            ]
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    self.add_font('kaiti', '', font_path)
-                    self.font_loaded = True
-                    break
-        except Exception as e:
-            logger.warning(f"字体加载失败: {e}")
-
-    def footer(self):
-        self.set_y(-15)
-        if self.font_loaded:
-            self.set_font('kaiti', '', 8)
-            self.cell(0, 10, f'第 {self.page_no()} 页', 0, new_x='LMARGIN', new_y='NEXT', align='C')
-        else:
-            self.set_font('Helvetica', '', 8)
-            self.cell(0, 10, f'Page {self.page_no()}', 0, new_x='LMARGIN', new_y='NEXT', align='C')
-
 
 # ================== 主程序 ==================
 

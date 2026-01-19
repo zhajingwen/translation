@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-文本处理模块
+文本处理器模块
 
-提供文本切割和分块功能：
-- 智能文本切割（保持句子完整性）
-- 超长行切割
-- 文本分块
+提供智能文本切割功能，保持句子完整性
 """
 
 import logging
-from typing import List, Tuple
+from typing import List
 
 from config import SENTENCE_END_PUNCTUATION, SECONDARY_PUNCTUATION
 
@@ -19,7 +16,14 @@ logger = logging.getLogger('TextProcessor')
 
 
 class TextProcessor:
-    """文本处理器"""
+    """
+    文本处理器：智能切割文本，保持句子完整性
+    
+    功能：
+    - 将提取器返回的内容列表切割成合适大小的文本块
+    - 优先在句子边界处切割，保持语义完整性
+    - 处理超长文本的递归切割
+    """
     
     def __init__(self, chunk_size: int = 8000, min_chunk_size: int = 500):
         """
@@ -31,166 +35,134 @@ class TextProcessor:
         """
         self.chunk_size = chunk_size
         self.min_chunk_size = min_chunk_size
-    
-    def is_sentence_end(self, line: str) -> bool:
-        """
-        判断一行是否以句子结束标点结尾
-        
-        Args:
-            line: 文本行
-        
-        Returns:
-            是否以句子结束标点结尾
-        """
-        line = line.rstrip()
-        if not line:
-            return False
-        return line[-1] in SENTENCE_END_PUNCTUATION
-    
-    def split_long_line(self, line: str) -> List[str]:
-        """
-        处理超长单行，按句子标点或固定长度切割
-        
-        Args:
-            line: 需要切割的单行文本
-        
-        Returns:
-            切割后的行列表
-        """
-        if len(line) <= self.chunk_size:
-            return [line]
-        
-        result = []
-        remaining = line
-        
-        while len(remaining) > self.chunk_size:
-            # 在 chunk_size 范围内查找最后一个句子结束标点
-            search_range = remaining[:self.chunk_size]
-            cut_pos = -1
-            
-            # 从后向前查找句子结束标点
-            for i in range(len(search_range) - 1, -1, -1):
-                if search_range[i] in SENTENCE_END_PUNCTUATION:
-                    cut_pos = i + 1  # 包含标点符号
-                    break
-            
-            if cut_pos > 0:
-                # 找到句子结束点，在此处切割
-                result.append(remaining[:cut_pos])
-                remaining = remaining[cut_pos:].lstrip()
-            else:
-                # 未找到句子结束标点，查找次要断句点
-                for i in range(len(search_range) - 1, -1, -1):
-                    if search_range[i] in SECONDARY_PUNCTUATION:
-                        cut_pos = i + 1
-                        break
-                
-                if cut_pos > 0:
-                    result.append(remaining[:cut_pos])
-                    remaining = remaining[cut_pos:].lstrip()
-                else:
-                    # 无任何断句点，强制按 chunk_size 切割
-                    result.append(remaining[:self.chunk_size])
-                    remaining = remaining[self.chunk_size:]
-        
-        # 添加剩余内容
-        if remaining:
-            result.append(remaining)
-        
-        return result
-    
-    def split_text_to_chunks(self, content: str) -> List[str]:
-        """
-        将文本切割成多个 chunk
-        优先在句子结束标点处切割，保持语义完整性
-        
-        切割优先级：
-        1. 优先在以句子结束标点（。！？…. ! ?）结尾的行处切割
-        2. 如果找不到，退而求其次在任意行边界切割
-        
-        Args:
-            content: 要切割的文本内容
-        
-        Returns:
-            切割后的 chunk 列表
-        """
-        if len(content) <= self.chunk_size:
-            return [content]
-        
-        page_list = []
-        rows = content.split('\n')
-        
-        # 预处理：对超长单行进行切割
-        processed_rows = []
-        for row in rows:
-            if len(row) > self.chunk_size:
-                # 超长行需要切割
-                split_lines = self.split_long_line(row)
-                processed_rows.extend(split_lines)
-            else:
-                processed_rows.append(row)
-        
-        current_chunk_rows = []
-        current_length = 0
-        last_sentence_end_index = -1  # 记录最后一个句子结束点
-        
-        for i, row in enumerate(processed_rows):
-            row_length = len(row) + 1  # +1 for newline
-            
-            # 检查是否是句子结束行
-            if self.is_sentence_end(row):
-                last_sentence_end_index = len(current_chunk_rows)
-            
-            # 如果加入当前行会超过阈值，且当前块已达到最小长度要求
-            if (current_length + row_length > self.chunk_size and 
-                current_chunk_rows and 
-                current_length >= self.min_chunk_size):
-                
-                # 优先在最后一个句子结束点切割
-                if last_sentence_end_index >= 0:
-                    cut_point = last_sentence_end_index + 1
-                    page_list.append('\n'.join(current_chunk_rows[:cut_point]))
-                    # 保留未切割的行
-                    current_chunk_rows = current_chunk_rows[cut_point:]
-                    current_length = sum(len(r) + 1 for r in current_chunk_rows)
-                    # 重新计算保留行中的句子结束点
-                    last_sentence_end_index = -1
-                    for idx, remaining_row in enumerate(current_chunk_rows):
-                        if self.is_sentence_end(remaining_row):
-                            last_sentence_end_index = idx
-                else:
-                    # 没有句子结束点，在当前位置切割
-                    page_list.append('\n'.join(current_chunk_rows))
-                    current_chunk_rows = []
-                    current_length = 0
-                    last_sentence_end_index = -1
-            
-            current_chunk_rows.append(row)
-            current_length += row_length
-        
-        # 处理最后剩余的内容
-        if current_chunk_rows:
-            last_chunk = '\n'.join(current_chunk_rows)
-            if len(last_chunk) < self.min_chunk_size and page_list:
-                # 合并到前一块
-                page_list[-1] = page_list[-1] + '\n' + last_chunk
-            else:
-                page_list.append(last_chunk)
-        
-        return page_list
+        logger.debug(f'[初始化] chunk_size={chunk_size}, min_chunk_size={min_chunk_size}')
     
     def process_extracted_content(self, content_list: List[str]) -> List[str]:
         """
-        处理提取的内容列表，合并后统一切割
+        处理提取器返回的内容列表，切割成合适大小的文本块
         
         Args:
-            content_list: 提取器返回的内容列表（每个元素可能是一页或一个段落）
+            content_list: 提取器返回的内容列表（每个元素是一页或一个章节）
         
         Returns:
-            切割后的 chunk 列表
+            切割后的文本块列表
         """
-        # 合并所有内容
-        full_content = '\n'.join(content_list)
+        if not content_list:
+            logger.warning('[处理] 输入内容为空')
+            return []
         
-        # 统一切割
-        return self.split_text_to_chunks(full_content)
+        chunks = []
+        current_chunk = ""
+        
+        for content in content_list:
+            # 跳过空内容
+            if not content or not content.strip():
+                continue
+            
+            # 如果当前内容本身就超过 chunk_size，需要单独切割
+            if len(content) > self.chunk_size:
+                # 先保存当前积累的内容
+                if current_chunk.strip():
+                    chunks.append(current_chunk.strip())
+                    current_chunk = ""
+                
+                # 切割超长内容
+                large_chunks = self._split_large_text(content)
+                chunks.extend(large_chunks)
+                continue
+            
+            # 检查是否可以合并到当前块
+            if len(current_chunk) + len(content) <= self.chunk_size:
+                # 可以合并
+                current_chunk += content + "\n"
+            else:
+                # 不能合并，需要切割当前块
+                if current_chunk.strip():
+                    chunks.append(current_chunk.strip())
+                current_chunk = content + "\n"
+        
+        # 添加最后一个块
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+        
+        logger.info(f'[处理] 完成，共切割成 {len(chunks)} 个chunk')
+        return chunks
+    
+    def _split_large_text(self, text: str) -> List[str]:
+        """
+        切割超长文本，在句子边界处切割
+        
+        Args:
+            text: 需要切割的超长文本
+        
+        Returns:
+            切割后的文本块列表
+        """
+        chunks = []
+        remaining_text = text
+        
+        while len(remaining_text) > self.chunk_size:
+            # 在 chunk_size 附近寻找切割点
+            split_point = self._find_split_point(remaining_text, self.chunk_size)
+            
+            if split_point == -1:
+                # 找不到合适的切割点，强制在 chunk_size 处切割
+                logger.warning(f'[切割] 未找到合适的切割点，强制切割 (长度={len(remaining_text)})')
+                split_point = self.chunk_size
+            
+            # 切割文本
+            chunk = remaining_text[:split_point].strip()
+            if chunk:
+                chunks.append(chunk)
+            
+            remaining_text = remaining_text[split_point:].strip()
+        
+        # 添加剩余文本
+        if remaining_text.strip():
+            chunks.append(remaining_text.strip())
+        
+        logger.debug(f'[切割] 大文本切割完成，共 {len(chunks)} 个chunk')
+        return chunks
+    
+    def _find_split_point(self, text: str, target_length: int) -> int:
+        """
+        在文本中寻找最佳切割点
+        
+        策略：
+        1. 从 target_length 位置向前搜索，优先在句子结束标点处切割
+        2. 如果找不到句子结束标点，尝试在次要标点处切割
+        3. 搜索范围为 [min_chunk_size, target_length]
+        
+        Args:
+            text: 文本内容
+            target_length: 目标长度
+        
+        Returns:
+            切割位置索引，-1 表示未找到合适的切割点
+        """
+        if len(text) <= target_length:
+            return len(text)
+        
+        # 搜索范围：从 target_length 向前到 min_chunk_size
+        search_start = max(self.min_chunk_size, target_length - 1000)
+        search_end = min(target_length, len(text))
+        
+        # 策略 1: 寻找句子结束标点
+        for i in range(search_end - 1, search_start - 1, -1):
+            if text[i] in SENTENCE_END_PUNCTUATION:
+                # 找到句子结束标点，在其后切割
+                return i + 1
+        
+        # 策略 2: 寻找次要标点
+        for i in range(search_end - 1, search_start - 1, -1):
+            if text[i] in SECONDARY_PUNCTUATION:
+                # 找到次要标点，在其后切割
+                return i + 1
+        
+        # 策略 3: 寻找空白字符
+        for i in range(search_end - 1, search_start - 1, -1):
+            if text[i].isspace():
+                return i + 1
+        
+        # 未找到合适的切割点
+        return -1
