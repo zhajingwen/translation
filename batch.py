@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import sys
@@ -79,10 +80,25 @@ def count_file_characters(file_path: Path):
         logger.error(f"读取文件字符数失败 {file_path.name}: {e}")
         return -1
 
-def batch_translate():
+def batch_translate(provider='akashml'):
     """
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
+    
+    Args:
+        provider: 服务商选择，可选值为 'akashml' 或 'deepseek'，默认为 'akashml'
     """
+    # 根据服务商选择配置
+    if provider == 'akashml':
+        LLM_API_BASE_URL = 'https://api.akashml.com/v1'
+        LLM_MODEL = 'Qwen/Qwen3-30B-A3B'
+        LLM_API_KEY = os.environ.get('AKASHML_API_KEY')
+    elif provider == 'deepseek':
+        LLM_API_BASE_URL = 'https://api.deepseek.com'
+        LLM_MODEL = 'deepseek-chat'
+        LLM_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+    else:
+        raise ValueError(f"不支持的服务商: {provider}，请选择 'akashml' 或 'deepseek'")
+    
     # 可以根据API限制和网络情况调整参数
     #  model="Qwen/Qwen3-30B-A3B", 上下文限制为32K
     #  无法达到理论值，尚未达到理论值就会出现该问题：2025-12-20 20:15:48,362 - httpx - INFO - HTTP Request: POST https://api.akashml.com/v1/chat/completions "HTTP/1.1 502 Bad Gateway"
@@ -93,9 +109,9 @@ def batch_translate():
         chunk_size=3000,      # 文本切割阈值（字符数），默认8000
         min_chunk_size=1000,   # 最小切割长度（字符数），默认500
         api_timeout=60,        # API 超时时间(秒)
-        api_base_url=os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1'),
-        model=os.environ.get('LLM_MODEL', 'Qwen/Qwen3-30B-A3B'),
-        api_key=os.environ.get('LLM_API_KEY')
+        api_base_url=LLM_API_BASE_URL,
+        model=LLM_MODEL,
+        api_key=LLM_API_KEY
     )
     
     current_dir = Path("./files")
@@ -247,8 +263,19 @@ def batch_translate():
 
 
 if __name__ == '__main__':
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='批量翻译文件工具')
+    parser.add_argument(
+        '--provider', '-p',
+        type=str,
+        choices=['akashml', 'deepseek'],
+        default='akashml',
+        help='选择服务商: akashml 或 deepseek (默认: akashml)'
+    )
+    args = parser.parse_args()
+    
     # 批量翻译文件
-    batch_translate()
+    batch_translate(provider=args.provider)
     # 合并翻译后的文件
     merge_entrance(
         files_dir="files", # 输入文件目录
