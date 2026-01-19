@@ -15,3 +15,8 @@ dependencies = [
 
 [project.scripts]
 translate = "translation_app.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["translation_app*"]
+exclude = ["files*", "examples*"]
