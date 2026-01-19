@@ -9,9 +9,10 @@
 5. 支持自定义线程数和重试参数
 
 使用说明：
-1. 设置环境变量 AKASHML_API_KEY
+1. 通过 TranslateConfig 的 api_key 参数传入 API Key（必需）
 2. 修改 source_origin_book_name 为要翻译的文件名
 3. 根据需要调整 TranslateConfig 参数：
+   - api_key: API密钥（必需）
    - max_workers: 线程数，建议3-10个（太多可能导致API限流）
    - max_retries: 重试次数，默认3次
    - retry_delay: 重试延迟，默认1秒
@@ -59,14 +60,10 @@ httpx_logger = logging.getLogger('httpx')
 httpx_logger.setLevel(logging.WARNING)
 
 # 使用akashml API https://playground.akashml.com/
-def get_api_client(base_url=None):
+def get_api_client(api_key, base_url=None):
     """获取 API 客户端，包含 API Key 验证"""
-    api_key = os.environ.get('AKASHML_API_KEY')
     if not api_key:
-        raise ValueError(
-            "未设置 AKASHML_API_KEY 环境变量。\n"
-            "请使用以下命令设置：export AKASHML_API_KEY='your-api-key'"
-        )
+        raise ValueError("api_key 参数不能为空")
     if base_url is None:
         base_url = os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1')
     return OpenAI(
@@ -115,7 +112,9 @@ class TranslateConfig:
     """
     def __init__(self, max_workers=5, max_retries=3, retry_delay=1,
                  chunk_size=8000, min_chunk_size=500, api_timeout=60,
-                 api_base_url=None, model=None):
+                 api_base_url=None, model=None, api_key=None):
+        if api_key is None:
+            raise ValueError("api_key 参数是必需的，必须通过 TranslateConfig 传入")
         self.max_workers = max_workers      # 最大线程数
         self.max_retries = max_retries      # 最大重试次数
         self.retry_delay = retry_delay      # 重试延迟时间(秒)
@@ -124,6 +123,7 @@ class TranslateConfig:
         self.api_timeout = api_timeout      # API 超时时间(秒)
         self.api_base_url = api_base_url or os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1')
         self.model = model or os.environ.get('LLM_MODEL', 'Qwen/Qwen3-30B-A3B')
+        self.api_key = api_key
 
 
 # 句子结束标点符号（中英文）
@@ -145,8 +145,8 @@ class Translate:
             source_file = source_file.split('files/')[1]
             
         self.config = config or TranslateConfig()
-        # 初始化 API 客户端，使用配置中的 base_url
-        self.client = get_api_client(self.config.api_base_url)
+        # 初始化 API 客户端，使用配置中的 api_key 和 base_url
+        self.client = get_api_client(self.config.api_key, self.config.api_base_url)
         self.text_list = []
         directory = 'files/'
         if not os.path.exists(directory):
