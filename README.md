@@ -10,10 +10,11 @@
 - ✅ **多线程并行翻译**：大幅提升翻译速度，可自定义线程数
 - ✅ **智能文本切割**：根据句子边界智能切割文本，保持语义完整性
 - ✅ **自动重试机制**：网络不稳定时自动重试，提高成功率
-- ✅ **多服务商支持**：支持 AkashML、DeepSeek 和 Hyperbolic 三个 LLM 服务商
+- ✅ **多服务商支持**：支持 AkashML、DeepSeek 和 Hyperbolic 三个 LLM 服务商（通过命令行参数选择）
 - ✅ **批量处理**：自动扫描目录并批量翻译文件
 - ✅ **文件合并**：自动合并小型翻译文件，便于管理
 - ✅ **进度跟踪**：实时显示翻译进度和统计信息
+- ✅ **智能文件检测**：自动检测中文文件并重命名，跳过已翻译文件
 
 ### 高级特性
 
@@ -22,6 +23,8 @@
 - 翻译失败标记和保留原文
 - 字符数统计和筛选
 - 可选的备份和删除功能
+- 自动跳过已存在翻译结果的文件
+- 自动删除字符数不足的文件（< 1000 字符）
 
 ## 安装说明
 
@@ -78,7 +81,10 @@ python job.py --provider deepseek
 python job.py --provider hyperbolic
 ```
 
-**注意**：需要在 `job.py` 的 `__main__` 部分修改 `source_origin_book_name` 变量来指定要翻译的文件。
+**重要提示**：
+- 需要在 `job.py` 的 `__main__` 部分（第 905 行）修改 `source_origin_book_name` 变量来指定要翻译的文件
+- 文件路径可以是相对路径，会自动处理 `files/` 前缀
+- 翻译结果保存为 `原文件名 translated.txt` 格式
 
 **作为模块使用**：
 
@@ -119,11 +125,12 @@ python batch.py --provider hyperbolic
 
 1. 扫描 `files/` 目录下的所有 `.txt`、`.pdf`、`.epub` 文件
 2. 自动跳过已翻译的文件（文件名以 `translated.txt` 结尾）
-3. 删除字符数 < 1000 的文件
-4. 跳过已存在翻译结果的文件
-5. 依次翻译剩余文件
-6. 翻译成功后删除原文件
-7. 自动调用合并脚本合并小型文件
+3. 检测中文文件（中文字符占比 >= 30%），自动重命名为 `原文件名 translated.txt` 格式
+4. 删除字符数 < 1000 的文件
+5. 跳过已存在翻译结果的文件（如果已存在 `原文件名 translated.txt`，则删除原文件）
+6. 依次翻译剩余文件
+7. 翻译成功后删除原文件
+8. 自动调用合并脚本合并小型文件（< 10万字）
 
 ### 3. 文件合并（merge_translated_files.py）
 
@@ -172,6 +179,8 @@ python test/ollama_local_qwen2.py
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `max_workers` | int | 5 | 最大线程数，建议 3-10 个 |
 | `max_retries` | int | 3 | 最大重试次数 |
 | `retry_delay` | int | 1 | 重试延迟时间（秒） |
@@ -181,6 +190,8 @@ python test/ollama_local_qwen2.py
 | `api_base_url` | str | 必需 | API 基础 URL |
 | `model` | str | 必需 | 模型名称 |
 | `api_key` | str | 必需 | API 密钥 |
+
+**注意**：`job.py` 和 `batch.py` 中的默认配置可能不同，请根据实际使用情况调整。
 
 ### 服务商配置
 
@@ -216,7 +227,7 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | 使用 DeepSeek 时必需 |
 | `HYPERBOLIC_API_KEY` | Hyperbolic API 密钥 | 使用 Hyperbolic 时必需 |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
-| `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览 | 可选，默认 true |
+| `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览（true/false） | 可选，默认 true |
 
 ## 项目结构
 
@@ -226,7 +237,7 @@ translation/
 ├── batch.py                    # 批量翻译脚本
 ├── merge_translated_files.py   # 文件合并脚本
 ├── pyproject.toml              # 项目依赖配置
-├── kaiti.ttf                   # 中文字体文件（PDF 生成用）
+├── kaiti.ttf                   # 中文字体文件（保留，当前版本不生成PDF）
 ├── files/                      # 文件目录
 │   ├── combined/              # 合并后的文件目录
 │   └── ...                    # 待翻译和已翻译的文件
@@ -249,11 +260,15 @@ translation/
 
 ### 批量翻译流程
 
-1. 扫描 `files/` 目录
-2. 筛选需要翻译的文件
+1. 扫描 `files/` 目录下的所有 `.txt`、`.pdf`、`.epub` 文件
+2. 预处理筛选：
+   - 跳过已翻译文件（文件名以 `translated.txt` 结尾）
+   - 检测中文文件并重命名（中文字符占比 >= 30%）
+   - 删除字符数 < 1000 的文件
+   - 跳过已存在翻译结果的文件（删除原文件）
 3. 依次翻译每个文件
 4. 翻译成功后删除原文件
-5. 自动调用合并脚本合并小型文件
+5. 自动调用合并脚本合并小型文件（< 10万字）
 
 ### 文件合并流程
 
@@ -270,9 +285,14 @@ translation/
 ### 性能优化
 
 - **线程数设置**：根据 API 服务商的并发限制调整，建议不超过 10 个线程
+  - `batch.py` 默认使用 8 个线程
+  - `job.py` 默认使用 1 个线程（可在代码中修改）
 - **文本切割**：`chunk_size` 应根据模型的最大上下文长度调整
-  - AkashML Qwen/Qwen3-30B-A3B：上下文限制 32K，建议 `chunk_size=3000`
+  - AkashML Qwen/Qwen3-30B-A3B：上下文限制 32K，`batch.py` 默认 `chunk_size=3000`
+  - `job.py` 默认 `chunk_size=50000`，`min_chunk_size=30000`（适合大文件）
 - **重试策略**：网络不稳定时建议增加重试次数和延迟时间
+  - `batch.py` 默认 `max_retries=6`，`retry_delay=120` 秒
+  - `job.py` 默认 `max_retries=6`，`retry_delay=120` 秒
 
 ### 错误处理
 
@@ -284,13 +304,18 @@ translation/
 
 - 翻译后的文件命名格式：`原文件名 translated.txt`
 - 批量翻译会自动删除原文件（翻译成功后）
-- 合并脚本支持备份功能，删除前会先备份到 `files/.backup/` 目录
+- 批量翻译会自动检测中文文件（中文字符占比 >= 30%），并重命名为 `原文件名 translated.txt` 格式
+- 批量翻译会自动删除字符数 < 1000 的文件
+- 批量翻译会自动跳过已存在翻译结果的文件（删除原文件）
+- 合并脚本支持备份功能，删除前会先备份到 `files/.backup/` 目录（带时间戳）
 
 ### 格式支持
 
 - **PDF**：使用 PyPDF2 提取文本，可能无法完美处理扫描版 PDF
-- **EPUB**：自动过滤空白页和样式文件，只提取正文内容
+- **EPUB**：自动过滤空白页和样式文件，只提取正文内容，支持多种 MIME 类型
 - **TXT**：支持 UTF-8、GBK、GB2312 编码
+
+**输出格式**：当前版本只生成 TXT 文件（`原文件名 translated.txt`），不生成 PDF 文件。
 
 ## 日志说明
 
@@ -306,6 +331,12 @@ translation/
 export LOG_LEVEL=DEBUG  # 显示详细调试信息
 export LOG_LEVEL=INFO   # 显示一般信息（默认）
 export LOG_LEVEL=WARNING  # 只显示警告和错误
+```
+
+控制是否在日志中显示翻译内容预览（隐私保护）：
+
+```bash
+export LOG_SHOW_CONTENT=false  # 不显示翻译内容预览（默认 true）
 ```
 
 ## 示例
@@ -351,10 +382,24 @@ A: 可以适当增加 `max_workers` 线程数，但要注意 API 服务商的并
 A: 失败的内容会被标记并保留原文，可以检查日志查看失败原因，通常是网络问题或文本过长。
 
 **Q: 如何调整文本切割大小？**  
-A: 根据使用的模型上下文限制调整 `chunk_size` 和 `min_chunk_size` 参数。
+A: 根据使用的模型上下文限制调整 `chunk_size` 和 `min_chunk_size` 参数。注意 `job.py` 和 `batch.py` 的默认配置不同，可根据需要修改。
 
 **Q: 翻译后的文件在哪里？**  
 A: 翻译结果保存在 `files/` 目录下，文件名格式为 `原文件名 translated.txt`。合并后的文件在 `files/combined/` 目录。
+
+**Q: 批量翻译时为什么有些文件被跳过了？**  
+A: 批量翻译会自动跳过以下文件：
+- 文件名以 `translated.txt` 结尾的文件（已翻译）
+- 中文字符占比 >= 30% 的 `.txt` 文件（会被重命名为 `translated.txt` 格式）
+- 字符数 < 1000 的文件（会被删除）
+- 已存在翻译结果的文件（原文件会被删除）
+
+**Q: 如何选择不同的 LLM 服务商？**  
+A: 使用 `--provider` 或 `-p` 参数：
+```bash
+python job.py --provider akashml    # 或 deepseek、hyperbolic
+python batch.py --provider deepseek
+```
 
 ## 许可证
 
