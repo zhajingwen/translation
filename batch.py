@@ -80,6 +80,50 @@ def count_file_characters(file_path: Path):
         logger.error(f"读取文件字符数失败 {file_path.name}: {e}")
         return -1
 
+def is_file_chinese(file_path: Path, threshold: float = 0.3) -> bool:
+    """
+    判断 .txt 文件内容是否主要是中文
+    
+    Args:
+        file_path: 文件路径（仅支持 .txt 文件）
+        threshold: 中文字符占比阈值，默认 0.3 (30%)
+    
+    Returns:
+        如果中文字符占比 >= threshold 则返回 True，否则返回 False
+        如果读取失败返回 False
+    """
+    file_ext = file_path.suffix.lower()
+    
+    # 只处理 .txt 文件
+    if file_ext != '.txt':
+        return False
+    
+    try:
+        # 读取txt文件
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 统计中文字符数量（Unicode 范围 \u4e00 - \u9fff）
+        chinese_count = 0
+        total_chars = 0
+        for char in content:
+            if char.strip():  # 忽略空白字符
+                total_chars += 1
+                if '\u4e00' <= char <= '\u9fff':
+                    chinese_count += 1
+        
+        # 如果总字符数为0，返回False
+        if total_chars == 0:
+            return False
+        
+        # 计算中文字符占比
+        chinese_ratio = chinese_count / total_chars
+        return chinese_ratio >= threshold
+            
+    except Exception as e:
+        logger.error(f"判断文件是否中文失败 {file_path.name}: {e}")
+        return False
+
 def batch_translate(provider='akashml'):
     """
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
@@ -134,6 +178,7 @@ def batch_translate(provider='akashml'):
     # 筛选出需要处理的文件（排除已翻译的、字符数不足的）
     files_to_process = []
     skipped_already_translated = 0  # 跳过：文件名本身是翻译结果
+    skipped_already_chinese = 0  # 跳过：文件内容已经是中文
     skipped_char_too_few = 0  # 跳过并删除：字符数不足
     skipped_result_exists = 0  # 跳过并删除：已存在翻译结果
     
@@ -144,6 +189,12 @@ def batch_translate(provider='akashml'):
         if file_name.endswith("translated.txt"):
             skipped_already_translated += 1
             logger.debug(f"[预处理] 跳过已翻译文件: {file_name}")
+            continue
+        
+        # 检查文件内容是否已经是中文，如果是则跳过但不删除（仅针对 .txt 文件）
+        if file_path.suffix.lower() == '.txt' and is_file_chinese(file_path, threshold=0.3):
+            skipped_already_chinese += 1
+            logger.info(f"[预处理] 跳过中文文件（不删除）: {file_name}")
             continue
         
         # 检查文件字符数，如果小于1000则跳过并删除
@@ -167,7 +218,7 @@ def batch_translate(provider='akashml'):
         
         files_to_process.append(file_path)
     
-    skipped_pre_count = skipped_already_translated + skipped_char_too_few + skipped_result_exists
+    skipped_pre_count = skipped_already_translated + skipped_already_chinese + skipped_char_too_few + skipped_result_exists
     
     if not files_to_process:
         logger.info(f"没有需要处理的文件（预处理跳过 {skipped_pre_count} 个文件）")
@@ -192,6 +243,8 @@ def batch_translate(provider='akashml'):
         logger.info(f'[任务] 预处理统计:')
         if skipped_already_translated > 0:
             logger.info(f'  - 跳过已翻译文件: {skipped_already_translated} 个')
+        if skipped_already_chinese > 0:
+            logger.info(f'  - 跳过中文文件: {skipped_already_chinese} 个（不删除）')
         if skipped_char_too_few > 0:
             logger.info(f'  - 删除字符数不足文件: {skipped_char_too_few} 个（字符数 < 1000）')
         if skipped_result_exists > 0:
@@ -256,6 +309,8 @@ def batch_translate(provider='akashml'):
         logger.info(f'[统计] 预处理跳过: {skipped_count} 个文件')
         if skipped_already_translated > 0:
             logger.info(f'  - 跳过已翻译文件: {skipped_already_translated} 个')
+        if skipped_already_chinese > 0:
+            logger.info(f'  - 跳过中文文件: {skipped_already_chinese} 个（不删除）')
         if skipped_char_too_few > 0:
             logger.info(f'  - 删除字符数不足文件: {skipped_char_too_few} 个（字符数 < 1000）')
         if skipped_result_exists > 0:
