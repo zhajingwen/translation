@@ -7,11 +7,25 @@
 
 使用说明：
 1. 命令行运行：
-   python job.py [--provider akashml|deepseek|hyperbolic]
-   - --provider 或 -p: 选择服务商（akashml、deepseek 或 hyperbolic），默认为 akashml
-   - 需要设置对应的环境变量：AKASHML_API_KEY、DEEPSEEK_API_KEY 或 HYPERBOLIC_API_KEY
+   python job.py <文件路径> [选项]
+   
+   位置参数：
+     文件路径              要翻译的文件（支持 .txt, .pdf, .epub）
+   
+   可选参数：
+     --provider, -p       选择服务商（akashml、deepseek 或 hyperbolic），默认为 akashml
+   
+   示例：
+     python job.py myfile.txt
+     python job.py files/document.pdf --provider deepseek
+     python job.py book.epub -p hyperbolic
 
-2. 作为模块使用时，通过 TranslateConfig 传入配置
+2. 环境变量配置：
+   - AKASHML_API_KEY: AkashML 服务的 API 密钥
+   - DEEPSEEK_API_KEY: DeepSeek 服务的 API 密钥
+   - HYPERBOLIC_API_KEY: Hyperbolic 服务的 API 密钥
+
+3. 作为模块使用时，通过 TranslateConfig 传入配置
 
 注意事项：
 - 根据所选服务商的并发限制调整线程数
@@ -55,7 +69,21 @@ Translate = Translator
 def main():
     """主程序入口"""
     # 解析命令行参数
-    parser = argparse.ArgumentParser(description='单文件翻译工具')
+    parser = argparse.ArgumentParser(
+        description='单文件翻译工具',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例用法：
+  python job.py myfile.txt
+  python job.py files/document.pdf --provider deepseek
+  python job.py book.epub -p hyperbolic
+        """
+    )
+    parser.add_argument(
+        'file',
+        type=str,
+        help='要翻译的文件路径（支持 .txt, .pdf, .epub）'
+    )
     parser.add_argument(
         '--provider', '-p',
         type=str,
@@ -68,8 +96,25 @@ def main():
     # 获取服务商配置
     provider_config = get_provider(args.provider)
     
-    # 配置文件名（需要手动修改）
-    source_origin_book_name = "files/070 - Hey Tech, Come to Healthcare.txt"
+    # 从命令行参数获取文件路径
+    source_origin_book_name = args.file
+    
+    # 验证文件是否存在
+    from pathlib import Path
+    file_path = Path(source_origin_book_name)
+    if not file_path.exists():
+        logger.error(f"文件不存在: {source_origin_book_name}")
+        exit(1)
+    
+    # 验证文件格式
+    supported_extensions = ['.txt', '.pdf', '.epub']
+    if file_path.suffix.lower() not in supported_extensions:
+        logger.error(f"不支持的文件格式: {file_path.suffix}")
+        logger.error(f"支持的格式: {', '.join(supported_extensions)}")
+        exit(1)
+    
+    logger.info(f"准备翻译文件: {source_origin_book_name}")
+    logger.info(f"使用服务商: {provider_config.name}")
     
     # 创建翻译配置
     config = TranslateConfig(

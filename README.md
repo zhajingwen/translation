@@ -71,22 +71,28 @@ export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 
 ### 1. 单文件翻译（job.py）
 
-直接运行 `job.py` 进行单文件翻译：
+通过命令行参数指定要翻译的文件：
 
 ```bash
-# 使用 AkashML（默认）
-python job.py
+# 基本用法（使用默认服务商 AkashML）
+python job.py myfile.txt
 
-# 或指定服务商
-python job.py --provider akashml
-python job.py --provider deepseek
-python job.py --provider hyperbolic
+# 指定文件路径
+python job.py files/document.pdf
+
+# 指定服务商
+python job.py myfile.txt --provider deepseek
+python job.py book.epub -p hyperbolic
+
+# 查看帮助信息
+python job.py --help
 ```
 
-**重要提示**：
-- 需要在 `job.py` 的 `__main__` 部分（第 905 行）修改 `source_origin_book_name` 变量来指定要翻译的文件
-- 文件路径可以是相对路径，会自动处理 `files/` 前缀
-- 翻译结果保存为 `原文件名 translated.txt` 格式
+**参数说明**：
+- `文件路径`：要翻译的文件（支持 .txt、.pdf、.epub），必需参数
+- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic），可选，默认为 akashml
+- 文件路径支持相对路径和绝对路径
+- 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
 **作为模块使用**：
 
@@ -442,7 +448,7 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-python job.py --provider akashml    # 或 deepseek、hyperbolic
+python job.py myfile.txt --provider akashml    # 或 deepseek、hyperbolic
 python batch.py --provider deepseek
 ```
 
