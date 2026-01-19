@@ -27,6 +27,7 @@
 - 这个版本不生成PDF文件，只生成txt文件
 """
 
+import argparse
 import os
 import time
 import re
@@ -841,6 +842,29 @@ class Translate:
             return False
 
 if __name__ == '__main__':
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='文档翻译工具')
+    parser.add_argument(
+        '--provider', '-p',
+        type=str,
+        choices=['akashml', 'deepseek'],
+        default='akashml',
+        help='选择服务商: akashml 或 deepseek (默认: akashml)'
+    )
+    args = parser.parse_args()
+    
+    # 根据服务商选择配置
+    if args.provider == 'akashml':
+        LLM_API_BASE_URL = 'https://api.akashml.com/v1'
+        LLM_MODEL = 'Qwen/Qwen3-30B-A3B'
+        LLM_API_KEY = os.environ.get('AKASHML_API_KEY')
+    elif args.provider == 'deepseek':
+        LLM_API_BASE_URL = 'https://api.deepseek.com'
+        LLM_MODEL = 'deepseek-chat'
+        LLM_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+    else:
+        raise ValueError(f"不支持的服务商: {args.provider}，请选择 'akashml' 或 'deepseek'")
+    
     source_origin_book_name = "files/070 - Hey Tech, Come to Healthcare.txt"
     
     # 可以根据API限制和网络情况调整参数
@@ -850,7 +874,10 @@ if __name__ == '__main__':
         retry_delay=120,       # 重试延迟时间(秒)
         chunk_size=50000,      # 文本切割阈值（字符数），默认8000
         min_chunk_size=30000,   # 最小切割长度（字符数），默认500
-        api_timeout=60        # API 超时时间(秒)
+        api_timeout=60,        # API 超时时间(秒)
+        api_base_url=LLM_API_BASE_URL,
+        model=LLM_MODEL,
+        api_key=LLM_API_KEY
     )
     
     # 启动翻译任务
