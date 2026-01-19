@@ -14,7 +14,7 @@ logger = logging.getLogger('Translation Batch')
 from PyPDF2 import PdfReader
 from ebooklib import epub
 from bs4 import BeautifulSoup
-from akashml import TranslateConfig, Translate
+from job import TranslateConfig, Translate
 # from
 from merge_translated_files import merge_entrance
 
