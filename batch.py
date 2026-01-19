@@ -94,7 +94,8 @@ def batch_translate():
         min_chunk_size=1000,   # 最小切割长度（字符数），默认500
         api_timeout=60,        # API 超时时间(秒)
         api_base_url=os.environ.get('LLM_API_BASE_URL', 'https://api.akashml.com/v1'),
-        model=os.environ.get('LLM_MODEL', 'Qwen/Qwen3-30B-A3B')
+        model=os.environ.get('LLM_MODEL', 'Qwen/Qwen3-30B-A3B'),
+        api_key=os.environ.get('LLM_API_KEY')
     )
     
     current_dir = Path("./files")
