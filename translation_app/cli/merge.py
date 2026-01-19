@@ -31,15 +31,15 @@ def main():
         help='保留原文件（默认会删除原文件）'
     )
     parser.add_argument(
-        '--no-backup',
+        '--backup',
         action='store_true',
         default=False,
-        help='删除原文件时不备份'
+        help='删除原文件时创建备份'
     )
     args = parser.parse_args()
 
     delete_originals = not args.keep_originals
-    backup = not args.no_backup
+    backup = args.backup
 
     merge_entrance(
         files_dir=args.files_dir,

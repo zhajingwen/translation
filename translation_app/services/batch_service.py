@@ -151,7 +151,7 @@ def batch_translate(provider: str = 'akashml'):
         logger.info('[任务] 启动文件合并流程')
     merge_entrance(
         files_dir=str(PathConfig.WORK_DIR),
-        delete_originals=False,
-        backup=True
+        delete_originals=True,
+        backup=False
     )
 

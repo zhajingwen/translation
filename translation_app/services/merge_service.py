@@ -261,8 +261,8 @@ def delete_original_files(
 
 def merge_entrance(
     files_dir: str = "files",
-    delete_originals: bool = False,
-    backup: bool = True
+    delete_originals: bool = True,
+    backup: bool = False
 ):
     """
     主流程：扫描 → 筛选 → 合并 → 删除（可选）
@@ -315,7 +315,7 @@ def merge_entrance(
             backup=backup
         )
     else:
-        logger.info("\n步骤 4/4: 跳过删除原文件（可设置 delete_originals=True 启用）")
+        logger.info("\n步骤 4/4: 跳过删除原文件（保留了源文件）")
 
     logger.info("\n" + "=" * 80)
     logger.info("文档合并脚本完成")

@@ -197,7 +197,7 @@ python -m translation_app.cli.main merge
 translate merge
 
 # 自定义选项
-translate merge --files-dir files --keep-originals --no-backup
+translate merge --files-dir files --keep-originals --backup
 ```
 
 **合并规则**：
@@ -215,8 +215,8 @@ from translation_app.services.merge_service import merge_entrance
 
 merge_entrance(
     files_dir="files",          # 输入文件目录
-    delete_originals=True,      # 是否删除原文件
-    backup=True                 # 是否备份原文件
+    delete_originals=True,      # 是否删除原文件（默认True）
+    backup=False                # 是否备份原文件（默认False）
 )
 ```
 
