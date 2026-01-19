@@ -1,6 +1,25 @@
 # 文档翻译工具
 
+> **版本**: 0.1.0 | **Python**: >= 3.12
+
 一个功能强大的多线程文档翻译工具，支持 PDF、EPUB、TXT 格式的批量翻译，支持多个 LLM 服务商，具备智能文本切割、自动重试、进度跟踪等功能。
+
+## 目录
+
+- [功能特性](#功能特性)
+- [使用方法](#使用方法)
+  - [快速上手](#-快速上手)
+  - [单文件翻译](#1-单文件翻译)
+  - [批量翻译](#2-批量翻译)
+  - [文件合并](#3-文件合并)
+  - [本地 Ollama 测试](#4-本地-ollama-测试)
+- [配置说明](#配置说明)
+  - [TranslateConfig 参数](#translateconfig-参数)
+  - [服务商配置](#服务商配置)
+  - [环境变量](#环境变量)
+- [项目结构](#项目结构)
+- [注意事项](#注意事项)
+- [常见问题](#常见问题)
 
 ## 功能特性
 
@@ -26,57 +45,9 @@
 - 自动跳过已存在翻译结果的文件
 - 自动删除字符数不足的文件（< 1000 字符）
 
-## 安装说明
-
-### 环境要求
-
-- Python >= 3.12
-
-### 安装依赖
-
-项目使用 `uv` 进行依赖管理：
-
-```bash
-# 如果还没有安装 uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 安装项目依赖
-uv sync
-```
-
-或者使用传统的 pip 安装：
-
-```bash
-pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
-```
-
-### 环境变量配置
-
-在使用前，需要设置相应服务商的 API Key：
-
-```bash
-# AkashML 服务
-export AKASHML_API_KEY="your_akashml_api_key"
-
-# DeepSeek 服务
-export DEEPSEEK_API_KEY="your_deepseek_api_key"
-
-# Hyperbolic 服务
-export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
-```
-
 ## 使用方法
 
-### ✅ 准备工作
-
-开始使用前，请确认以下条件已满足：
-
-- [ ] **Python 环境**：已安装 Python >= 3.12
-- [ ] **项目依赖**：已执行 `uv sync` 或 `pip install` 安装依赖
-- [ ] **API 密钥**：已配置对应服务商的 API Key 环境变量
-- [ ] **待翻译文件**：已准备好文件（支持 `.txt`、`.pdf`、`.epub` 格式）
-
-### 🚀 三步快速上手
+### 🚀 快速上手
 
 #### 第一步：安装依赖
 
@@ -313,21 +284,19 @@ python examples/ollama_local_qwen2.py
 
 ### TranslateConfig 参数
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `max_workers` | int | 5 | 最大线程数，建议 3-10 个 |
-| `max_retries` | int | 3 | 最大重试次数 |
-| `retry_delay` | int | 1 | 重试延迟时间（秒） |
-| `chunk_size` | int | 8000 | 文本切割阈值（字符数） |
-| `min_chunk_size` | int | 500 | 最小切割长度（字符数） |
-| `api_timeout` | int | 60 | API 超时时间（秒） |
-| `api_base_url` | str | 必需 | API 基础 URL |
-| `model` | str | 必需 | 模型名称 |
-| `api_key` | str | 必需 | API 密钥 |
+| 参数 | 类型 | job 默认值 | batch 默认值 | 说明 |
+|------|------|------------|--------------|------|
+| `max_workers` | int | 1 | 8 | 最大线程数，建议 3-10 个 |
+| `max_retries` | int | 6 | 6 | 最大重试次数 |
+| `retry_delay` | int | 120 | 120 | 重试延迟时间（秒） |
+| `chunk_size` | int | 50000 | 3000 | 文本切割阈值（字符数） |
+| `min_chunk_size` | int | 30000 | 500 | 最小切割长度（字符数） |
+| `api_timeout` | int | 60 | 60 | API 超时时间（秒） |
+| `api_base_url` | str | - | - | API 基础 URL（必需） |
+| `model` | str | - | - | 模型名称（必需） |
+| `api_key` | str | - | - | API 密钥（必需） |
 
-**注意**：单文件翻译（job）和批量翻译（batch）的默认配置可能不同，请根据实际使用情况调整。配置定义在 `core/config.py` 的 `TranslationDefaults` 类中。
+> **提示**：`job` 模式适合翻译大文件，使用较大的 chunk；`batch` 模式使用多线程并行处理，chunk 较小以提高吞吐量。配置定义在 `core/config.py` 的 `TranslationDefaults` 类中。
 
 ### 服务商配置
 
@@ -497,52 +466,15 @@ cli → services → domain
 - **infra** 独立，被 **services** 使用
 - **core** 被所有层使用，不依赖其他层（除 file_analyzer）
 
-## 工作流程
-
-### 单文件翻译流程
-
-1. 读取源文件（PDF/EPUB/TXT）
-2. 提取文本内容
-3. 智能切割文本（保持句子完整性）
-4. 多线程并行翻译各个文本块
-5. 自动重试失败的翻译
-6. 合并翻译结果
-7. 保存为 TXT 文件
-
-### 批量翻译流程
-
-1. 扫描 `files/` 目录下的所有 `.txt`、`.pdf`、`.epub` 文件
-2. 预处理筛选：
-   - 跳过已翻译文件（文件名以 `translated.txt` 结尾）
-   - 检测中文文件并重命名（中文字符占比 >= 30%）
-   - 删除字符数 < 1000 的文件
-   - 跳过已存在翻译结果的文件（删除原文件）
-3. 依次翻译每个文件
-4. 翻译成功后删除原文件
-5. 自动调用合并脚本合并小型文件（< 10万字）
-
-### 文件合并流程
-
-1. 扫描所有 `*translated.txt` 文件
-2. 统计每个文件的中文字符数
-3. 筛选出 < 10万字的文件
-4. 按文件名自然排序
-5. 合并成不超过 20万字的文件
-6. 保存到 `files/combined/` 目录
-7. 可选：备份并删除原文件
-
 ## 注意事项
 
 ### 性能优化
 
 - **线程数设置**：根据 API 服务商的并发限制调整，建议不超过 10 个线程
-  - 批量翻译（batch）默认使用 8 个线程
-  - 单文件翻译（job）默认使用 1 个线程
-- **文本切割**：`chunk_size` 应根据模型的最大上下文长度调整
-  - AkashML Qwen/Qwen3-30B-A3B：上下文限制 32K，批量翻译默认 `chunk_size=3000`
-  - 单文件翻译默认 `chunk_size=50000`，`min_chunk_size=30000`（适合大文件）
+- **文本切割**：`chunk_size` 应根据模型的最大上下文长度调整（AkashML 上下文限制 32K）
 - **重试策略**：网络不稳定时建议增加重试次数和延迟时间
-  - 默认 `max_retries=6`，`retry_delay=120` 秒
+
+> 详细默认值请参考 [TranslateConfig 参数](#translateconfig-参数) 表格。
 
 ### 错误处理
 
