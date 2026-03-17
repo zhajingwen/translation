@@ -67,6 +67,15 @@ def batch_translate(provider: str = 'akashml'):
 
     if not files_to_process:
         logger.info(f"没有需要处理的文件（预处理跳过 {preprocess_stats.total_skipped} 个文件）")
+        # 即便当前没有需要翻译的原始文件，仍然尝试执行一次合并流程，
+        # 以便在目录中仅存在已翻译文件（*translated.txt）时也能完成自动合并。
+        if LogConfig.LOG_SHOW_CONTENT:
+            logger.info('[任务] 启动文件合并流程（仅合并，不进行翻译）')
+        merge_entrance(
+            files_dir=str(PathConfig.WORK_DIR),
+            delete_originals=True,
+            backup=False
+        )
         return
 
     # 初始化进度统计变量
