@@ -26,7 +26,7 @@ def main():
         type=str,
         choices=['akashml', 'deepseek', 'hyperbolic', 'bonsai'],
         default='akashml',
-        help='选择服务商 (默认: akashml)；bonsai 为本地 Bonsai-demo OpenAI 兼容服务'
+        help='选择服务商 (默认: akashml)；bonsai 默认连 Bonsai-demo MLX :8081，可用环境变量改 llama :8080'
     )
 
     batch_parser = subparsers.add_parser('batch', help='批量翻译 files/ 目录')

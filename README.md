@@ -74,10 +74,28 @@ export DEEPSEEK_API_KEY="your_deepseek_api_key"
 # 选项 3：Hyperbolic
 export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 
-# 选项 4：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo) 的 llama-server / MLX，OpenAI 兼容 API）
-# 先在 Bonsai-demo 目录执行 ./scripts/start_llama_server.sh（默认 API：http://localhost:8080/v1/chat/completions）
-# 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8080/v1）、BONSAI_API_MODEL、BONSAI_API_KEY、BONSAI_API_TIMEOUT
+# 选项 4：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
+# 默认按 MLX：在 Bonsai-demo 目录执行 ./scripts/start_mlx_server.sh（端口 8081，API 根路径 /v1）
+# 若用 llama-server：export BONSAI_API_BASE_URL=http://127.0.0.1:8080/v1，并 export BONSAI_API_MODEL=<curl http://127.0.0.1:8080/v1/models 里的 id>
+# 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8081/v1）、BONSAI_API_KEY、BONSAI_API_TIMEOUT
+# MLX 的 model：与 curl http://127.0.0.1:8081/v1/models 的 id 一致；推荐 export BONSAI_DEMO_DIR=/你的路径/Bonsai-demo
+# （会自动用 $BONSAI_DEMO_DIR/models/Bonsai-8B-mlx），或直接把上述 JSON 里的 id 设到 BONSAI_API_MODEL
+# 勿随便填 gpt-3.5-turbo / bonsai，否则会去 HuggingFace 拉模型并报 401
 ```
+
+**验证 MLX 是否正常（整段粘贴时请不要带「以 `#` 开头的说明行」）**：在默认 zsh 下若未开启交互式注释，行首的 `#` 会被当成命令名，从而出现 `zsh: command not found: #`。可先执行 `setopt interactivecomments`，或只复制下面两个代码块中的命令。
+
+```bash
+curl -s http://127.0.0.1:8081/v1/models | python3 -m json.tool
+```
+
+```bash
+curl http://127.0.0.1:8081/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"models/Bonsai-8B-mlx","messages":[{"role":"user","content":"写一段 Python 代码"}],"temperature":0.6}'
+```
+
+`v1/models` 里的 `id` 多为绝对路径，与请求里的 `model` 写成 `models/Bonsai-8B-mlx`（相对 Bonsai-demo 根目录）通常等效；你本地已成功说明相对路径可用。翻译项目未设 `BONSAI_DEMO_DIR` 时默认即用该相对路径。
 
 #### 第三步：开始翻译
 
@@ -146,6 +164,7 @@ graph TD
 | ❌ `Unsupported file format` | 文件格式不支持 | 确认文件是 `.txt`、`.pdf` 或 `.epub` 格式 |
 | ❌ `Permission denied` | 文件权限问题 | 检查文件读写权限：`chmod 644 your_file.txt` |
 | ⚠️ 翻译速度慢 | 线程数设置过低 | 代码中调整 `max_workers` 参数（建议 3-10） |
+| ⚠️ `zsh: command not found: #` | 粘贴了以 `#` 开头的说明行，且未开启 zsh 交互注释 | 删掉这些行，或先执行 `setopt interactivecomments` |
 
 ### 1. 单文件翻译
 
@@ -164,7 +183,7 @@ translate job files/document.pdf
 # 指定服务商
 translate job myfile.txt --provider deepseek
 translate job book.epub -p hyperbolic
-translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 llama-server
+translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 MLX server（默认 8081）
 
 # 查看帮助信息
 translate job --help

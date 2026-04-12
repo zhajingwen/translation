@@ -7,11 +7,12 @@
 - AkashML
 - DeepSeek
 - Hyperbolic
-- Bonsai（本地 PrismML-Eng/Bonsai-demo 的 llama-server / MLX server，OpenAI 兼容 API）
+- Bonsai（本地 Bonsai-demo；默认对接 MLX server :8081，可改环境变量使用 llama-server :8080）
 """
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -71,20 +72,36 @@ class Providers:
         """
         本地 Bonsai（github.com/PrismML-Eng/Bonsai-demo）OpenAI 兼容端点。
 
-        默认对接 ``./scripts/start_llama_server.sh``（端口 8080）。
-        若使用 MLX 服务（``./scripts/start_mlx_server.sh``），请设置::
+        默认对接 ``./scripts/start_mlx_server.sh``（Apple Silicon，端口 8081）。
+        若使用 llama-server（``./scripts/start_llama_server.sh``），请设置::
 
-            export BONSAI_API_BASE_URL=http://127.0.0.1:8081/v1
+            export BONSAI_API_BASE_URL=http://127.0.0.1:8080/v1
 
         环境变量：
-        - BONSAI_API_BASE_URL：API 根路径（须含 ``/v1``），默认 ``http://127.0.0.1:8080/v1``
-        - BONSAI_API_MODEL：请求里的 model 名称；若 400，可用 ``curl <base>/../v1/models`` 查看
+        - BONSAI_API_BASE_URL：API 根路径（须含 ``/v1``），默认 ``http://127.0.0.1:8081/v1``
+        - BONSAI_API_MODEL：请求里的 ``model`` 字段；不设置则按下面规则生成。
+        - BONSAI_DEMO_DIR：Bonsai-demo 仓库根目录的绝对路径。若设置，默认 ``model`` 为
+          ``{BONSAI_DEMO_DIR}/models/Bonsai-{BONSAI_MODEL}-mlx``，与 ``curl .../v1/models`` 返回的 ``id`` 一致。
+        - BONSAI_MODEL：与 demo 相同，``8B``（默认）、``4B``、``1.7B``；在未设置 ``BONSAI_API_MODEL`` 时使用。
         - BONSAI_API_KEY：可选；本地服务无鉴权时可不设（使用占位值）
+
+        若未设置 ``BONSAI_DEMO_DIR`` 与 ``BONSAI_API_MODEL``，则 ``model`` 为相对路径 ``models/Bonsai-8B-mlx``（依赖服务端工作目录，易不匹配）；
+        **推荐**设置 ``BONSAI_DEMO_DIR`` 或直接把 ``curl http://127.0.0.1:8081/v1/models`` 的 ``id`` 写入 ``BONSAI_API_MODEL``。
+
+        注意：勿使用 ``gpt-3.5-turbo`` 等占位名，``mlx_lm`` 会当作 HuggingFace 仓库拉取并报错。
         """
-        base = os.environ.get('BONSAI_API_BASE_URL', 'http://127.0.0.1:8080/v1').rstrip('/')
+        base = os.environ.get('BONSAI_API_BASE_URL', 'http://127.0.0.1:8081/v1').rstrip('/')
         if not base.endswith('/v1'):
             base = f'{base}/v1'
-        model = os.environ.get('BONSAI_API_MODEL', 'gpt-3.5-turbo')
+        model = os.environ.get('BONSAI_API_MODEL')
+        if not model:
+            size = os.environ.get('BONSAI_MODEL', '8B')
+            rel = f'models/Bonsai-{size}-mlx'
+            demo_dir = os.environ.get('BONSAI_DEMO_DIR', '').strip()
+            if demo_dir:
+                model = str((Path(demo_dir).expanduser().resolve() / rel))
+            else:
+                model = rel
         api_key = os.environ.get('BONSAI_API_KEY', 'local')
         return ProviderConfig(
             name='Bonsai (local)',
