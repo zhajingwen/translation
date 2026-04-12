@@ -24,16 +24,16 @@ def main():
     job_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'bonsai'],
         default='akashml',
-        help='选择服务商 (默认: akashml)'
+        help='选择服务商 (默认: akashml)；bonsai 为本地 Bonsai-demo OpenAI 兼容服务'
     )
 
     batch_parser = subparsers.add_parser('batch', help='批量翻译 files/ 目录')
     batch_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'bonsai'],
         default='akashml',
         help='选择服务商 (默认: akashml)'
     )

@@ -5,6 +5,7 @@
 """
 
 import logging
+import os
 from pathlib import Path
 
 from translation_app.domain.translator import Translator
@@ -22,6 +23,10 @@ def run_single_file(source_file: str, provider: str = 'akashml') -> bool:
     单文件翻译入口
     """
     provider_config = get_provider(provider)
+
+    api_timeout = TranslationDefaults.JOB_API_TIMEOUT
+    if provider.lower() == 'bonsai':
+        api_timeout = int(os.environ.get('BONSAI_API_TIMEOUT', '300'))
 
     # 验证文件是否存在
     file_path = Path(source_file)
@@ -45,7 +50,7 @@ def run_single_file(source_file: str, provider: str = 'akashml') -> bool:
         retry_delay=TranslationDefaults.JOB_RETRY_DELAY,
         chunk_size=TranslationDefaults.JOB_CHUNK_SIZE,
         min_chunk_size=TranslationDefaults.JOB_MIN_CHUNK_SIZE,
-        api_timeout=TranslationDefaults.JOB_API_TIMEOUT,
+        api_timeout=api_timeout,
         api_base_url=provider_config.api_base_url,
         model=provider_config.model,
         api_key=provider_config.api_key,

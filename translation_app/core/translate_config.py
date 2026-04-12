@@ -29,10 +29,10 @@ class RetryConfig:
     重试策略配置
     
     参数:
-        max_retries: 最大重试次数，默认3
+        max_retries: 最大重试次数，默认5
         retry_delay: 重试延迟时间（秒），默认1
     """
-    max_retries: int = 3
+    max_retries: int = 5
     retry_delay: int = 1
 
 
@@ -115,7 +115,7 @@ class TranslateConfig:
 
 def create_translate_config(
     max_workers: int = 5,
-    max_retries: int = 3,
+    max_retries: int = 5,
     retry_delay: int = 1,
     chunk_size: int = 8000,
     min_chunk_size: int = 500,
@@ -127,10 +127,10 @@ def create_translate_config(
 ) -> TranslateConfig:
     """
     便捷函数：创建 TranslateConfig（向后兼容旧的扁平化参数）
-    
+
     Args:
         max_workers: 最大线程数，默认5
-        max_retries: 最大重试次数，默认3
+        max_retries: 最大重试次数，默认5
         retry_delay: 重试延迟时间（秒），默认1
         chunk_size: 文本切割阈值（字符数），默认8000
         min_chunk_size: 最小切割长度（字符数），默认500

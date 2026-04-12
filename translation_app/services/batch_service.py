@@ -5,6 +5,7 @@
 """
 
 import logging
+import os
 import time
 
 from translation_app.domain.translator import Translator
@@ -31,9 +32,13 @@ def batch_translate(provider: str = 'akashml'):
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
 
     Args:
-        provider: 服务商选择，可选值为 'akashml'、'deepseek' 或 'hyperbolic'
+        provider: 服务商选择，可选值为 'akashml'、'deepseek'、'hyperbolic' 或 'bonsai'
     """
     provider_config = get_provider(provider)
+
+    api_timeout = TranslationDefaults.BATCH_API_TIMEOUT
+    if provider.lower() == 'bonsai':
+        api_timeout = int(os.environ.get('BONSAI_API_TIMEOUT', '300'))
 
     config = create_translate_config(
         max_workers=TranslationDefaults.BATCH_MAX_WORKERS,
@@ -41,7 +46,7 @@ def batch_translate(provider: str = 'akashml'):
         retry_delay=TranslationDefaults.BATCH_RETRY_DELAY,
         chunk_size=TranslationDefaults.BATCH_CHUNK_SIZE,
         min_chunk_size=TranslationDefaults.BATCH_MIN_CHUNK_SIZE,
-        api_timeout=TranslationDefaults.BATCH_API_TIMEOUT,
+        api_timeout=api_timeout,
         api_base_url=provider_config.api_base_url,
         model=provider_config.model,
         api_key=provider_config.api_key,

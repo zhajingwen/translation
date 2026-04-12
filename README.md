@@ -62,7 +62,7 @@ pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 
 #### 第二步：配置 API Key
 
-选择一个服务商并配置其 API Key（必需）：
+选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic 时必需；本地 `bonsai` 不需要）：
 
 ```bash
 # 选项 1：AkashML（推荐，性价比高）
@@ -73,6 +73,10 @@ export DEEPSEEK_API_KEY="your_deepseek_api_key"
 
 # 选项 3：Hyperbolic
 export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
+
+# 选项 4：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo) 的 llama-server / MLX，OpenAI 兼容 API）
+# 先在 Bonsai-demo 目录执行 ./scripts/start_llama_server.sh（默认 API：http://localhost:8080/v1/chat/completions）
+# 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8080/v1）、BONSAI_API_MODEL、BONSAI_API_KEY、BONSAI_API_TIMEOUT
 ```
 
 #### 第三步：开始翻译
@@ -160,6 +164,7 @@ translate job files/document.pdf
 # 指定服务商
 translate job myfile.txt --provider deepseek
 translate job book.epub -p hyperbolic
+translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 llama-server
 
 # 查看帮助信息
 translate job --help
@@ -167,7 +172,7 @@ translate job --help
 
 **参数说明**：
 - `文件路径`：要翻译的文件（支持 .txt、.pdf、.epub），必需参数
-- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic），可选，默认为 akashml
+- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、bonsai），可选，默认为 akashml
 - 文件路径支持相对路径和绝对路径
 - 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
@@ -180,7 +185,7 @@ from translation_app.core.providers import get_provider
 from translation_app.infra.openai_client import build_openai_client
 
 # 方式 1: 使用便捷函数创建配置
-provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic'
+provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'bonsai'
 
 config = create_translate_config(
     max_workers=5,
@@ -219,6 +224,7 @@ translate batch
 translate batch --provider akashml
 translate batch --provider deepseek
 translate batch --provider hyperbolic
+translate batch --provider bonsai
 ```
 
 **批量翻译的自动化流程**：
@@ -421,7 +427,7 @@ translation/
 
 #### 配置层 (core/)
 - **config.py**: 统一管理所有配置项，支持环境变量覆盖
-- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic）
+- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、Bonsai 本地）
 - **translate_config.py**: 翻译配置类（组合模式）
 - **file_analyzer.py**: 文件分析（复用 extractors 进行内容提取）
 - **file_ops.py**: 安全的文件操作（删除、重命名）
@@ -588,7 +594,7 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic
+translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、bonsai
 translate batch --provider deepseek
 ```
 
