@@ -122,7 +122,7 @@ class Translator:
                 model=self.config.model,
                 messages=[
                     {"role": "system", "content": "You are a translation assistant."},
-                    {"role": "user", "content": f"将该文本翻译成中文: {text_origin}"}
+                    {"role": "user", "content": f"将该文本翻译成简体中文（白话文）: {text_origin}"}
                 ],
                 stream=False,
                 timeout=self.config.api_timeout
