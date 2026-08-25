@@ -29,7 +29,7 @@
 - ✅ **多线程并行翻译**：大幅提升翻译速度，可自定义线程数
 - ✅ **智能文本切割**：根据句子边界智能切割文本，保持语义完整性
 - ✅ **自动重试机制**：网络不稳定时自动重试，提高成功率
-- ✅ **多服务商支持**：支持 AkashML、DeepSeek 和 Hyperbolic 三个 LLM 服务商（通过命令行参数选择）
+- ✅ **多服务商支持**：支持 AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter 和本地 Bonsai 等 LLM 服务商（通过命令行参数选择）
 - ✅ **批量处理**：自动扫描目录并批量翻译文件
 - ✅ **文件合并**：自动合并小型翻译文件，便于管理
 - ✅ **进度跟踪**：实时显示翻译进度和统计信息
@@ -62,7 +62,7 @@ pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 
 #### 第二步：配置 API Key
 
-选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic 时必需；本地 `bonsai` 不需要）：
+选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic / AIHubMix / OpenRouter 时必需；本地 `bonsai` 不需要）：
 
 ```bash
 # 选项 1：AkashML（推荐，性价比高）
@@ -74,7 +74,17 @@ export DEEPSEEK_API_KEY="your_deepseek_api_key"
 # 选项 3：Hyperbolic
 export HYPERBOLIC_API_KEY="your_hyperbolic_api_key"
 
-# 选项 4：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
+# 选项 4：AIHubMix（聚合 OpenAI/Claude/Gemini/DeepSeek/Qwen 等 500+ 模型，OpenAI 兼容接口）
+export AIHUBMIX_API_KEY="your_aihubmix_api_key"
+# 可选：AIHUBMIX_API_BASE_URL（默认 https://aihubmix.com/v1；若默认线路不可用可改用备用线路 https://api.aihubmix.com/v1）
+# 可选：AIHUBMIX_MODEL（默认 ox-alpha，可填 AIHubMix 支持的任意模型 id，如 auto 表示自动路由）
+
+# 选项 5：OpenRouter（聚合多家厂商模型，OpenAI 兼容接口）
+export OPENROUTER_API_KEY="your_openrouter_api_key"
+# 可选：OPENROUTER_API_BASE_URL（默认 https://openrouter.ai/api/v1）
+# 可选：OPENROUTER_MODEL（默认 stealth/ox-alpha，可填 OpenRouter 支持的任意模型 id）
+
+# 选项 6：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
 # 默认按 MLX：在 Bonsai-demo 目录执行 ./scripts/start_mlx_server.sh（端口 8081，API 根路径 /v1）
 # 若用 llama-server：export BONSAI_API_BASE_URL=http://127.0.0.1:8080/v1，并 export BONSAI_API_MODEL=<curl http://127.0.0.1:8080/v1/models 里的 id>
 # 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8081/v1）、BONSAI_API_KEY、BONSAI_API_TIMEOUT
@@ -183,6 +193,8 @@ translate job files/document.pdf
 # 指定服务商
 translate job myfile.txt --provider deepseek
 translate job book.epub -p hyperbolic
+translate job myfile.txt -p aihubmix
+translate job myfile.txt -p openrouter
 translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 MLX server（默认 8081）
 
 # 查看帮助信息
@@ -191,7 +203,7 @@ translate job --help
 
 **参数说明**：
 - `文件路径`：要翻译的文件（支持 .txt、.pdf、.epub），必需参数
-- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、bonsai），可选，默认为 akashml
+- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、aihubmix、openrouter、bonsai），可选，默认为 akashml
 - 文件路径支持相对路径和绝对路径
 - 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
@@ -204,7 +216,7 @@ from translation_app.core.providers import get_provider
 from translation_app.infra.openai_client import build_openai_client
 
 # 方式 1: 使用便捷函数创建配置
-provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'bonsai'
+provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'
 
 config = create_translate_config(
     max_workers=5,
@@ -243,6 +255,8 @@ translate batch
 translate batch --provider akashml
 translate batch --provider deepseek
 translate batch --provider hyperbolic
+translate batch --provider aihubmix
+translate batch --provider openrouter
 translate batch --provider bonsai
 ```
 
@@ -349,6 +363,22 @@ LLM_MODEL = 'openai/gpt-oss-20b'
 LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 ```
 
+#### AIHubMix
+
+```python
+LLM_API_BASE_URL = os.environ.get('AIHUBMIX_API_BASE_URL', 'https://aihubmix.com/v1')
+LLM_MODEL = os.environ.get('AIHUBMIX_MODEL', 'ox-alpha')
+LLM_API_KEY = os.environ.get('AIHUBMIX_API_KEY')
+```
+
+#### OpenRouter
+
+```python
+LLM_API_BASE_URL = os.environ.get('OPENROUTER_API_BASE_URL', 'https://openrouter.ai/api/v1')
+LLM_MODEL = os.environ.get('OPENROUTER_MODEL', 'stealth/ox-alpha')
+LLM_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+```
+
 ### 环境变量
 
 | 变量名 | 说明 | 必需 |
@@ -356,6 +386,12 @@ LLM_API_KEY = os.environ.get('HYPERBOLIC_API_KEY')
 | `AKASHML_API_KEY` | AkashML API 密钥 | 使用 AkashML 时必需 |
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | 使用 DeepSeek 时必需 |
 | `HYPERBOLIC_API_KEY` | Hyperbolic API 密钥 | 使用 Hyperbolic 时必需 |
+| `AIHUBMIX_API_KEY` | AIHubMix API 密钥 | 使用 AIHubMix 时必需 |
+| `AIHUBMIX_API_BASE_URL` | AIHubMix API 基础 URL | 可选，默认 `https://aihubmix.com/v1` |
+| `AIHUBMIX_MODEL` | AIHubMix 模型名称（可填具体模型 id，或 `auto` 表示自动路由） | 可选，默认 `ox-alpha` |
+| `OPENROUTER_API_KEY` | OpenRouter API 密钥 | 使用 OpenRouter 时必需 |
+| `OPENROUTER_API_BASE_URL` | OpenRouter API 基础 URL | 可选，默认 `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL` | OpenRouter 模型名称（可填 OpenRouter 支持的任意模型 id） | 可选，默认 `stealth/ox-alpha` |
 | `TRANSLATION_WORK_DIR` | 工作目录路径 | 可选，默认 `files` |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
 | `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览（true/false） | 可选，默认 true |
@@ -446,7 +482,7 @@ translation/
 
 #### 配置层 (core/)
 - **config.py**: 统一管理所有配置项，支持环境变量覆盖
-- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、Bonsai 本地）
+- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、Bonsai 本地）
 - **translate_config.py**: 翻译配置类（组合模式）
 - **file_analyzer.py**: 文件分析（复用 extractors 进行内容提取）
 - **file_ops.py**: 安全的文件操作（删除、重命名）
@@ -613,7 +649,7 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、bonsai
+translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、aihubmix、openrouter、bonsai
 translate batch --provider deepseek
 ```
 

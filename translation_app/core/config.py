@@ -82,6 +82,9 @@ class TranslationDefaults:
     BATCH_CHUNK_SIZE = 3000
     BATCH_MIN_CHUNK_SIZE = 1000
     BATCH_API_TIMEOUT = 60
+
+    # OpenRouter 限流较严（尤其是 stealth/免费模型），批量翻译时自动降低并发（默认值的 50%）
+    OPENROUTER_BATCH_MAX_WORKERS = 4
     
     # 单文件翻译默认配置
     JOB_MAX_WORKERS = 1

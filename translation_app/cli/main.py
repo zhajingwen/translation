@@ -24,7 +24,7 @@ def main():
     job_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic', 'bonsai'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'],
         default='akashml',
         help='选择服务商 (默认: akashml)；bonsai 默认连 Bonsai-demo MLX :8081，可用环境变量改 llama :8080'
     )
@@ -33,9 +33,15 @@ def main():
     batch_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic', 'bonsai'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'],
         default='akashml',
         help='选择服务商 (默认: akashml)'
+    )
+    batch_parser.add_argument(
+        '--no-merge',
+        action='store_true',
+        default=False,
+        help='翻译完成后不自动合并翻译结果（默认会自动合并）'
     )
 
     merge_parser = subparsers.add_parser('merge', help='合并翻译后的文件')
@@ -64,7 +70,7 @@ def main():
         success = run_single_file(args.file, args.provider)
         return 0 if success else 1
     if args.command == 'batch':
-        batch_translate(args.provider)
+        batch_translate(args.provider, auto_merge=not args.no_merge)
         return 0
     if args.command == 'merge':
         merge_entrance(

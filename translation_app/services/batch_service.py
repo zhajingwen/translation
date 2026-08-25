@@ -27,12 +27,13 @@ from translation_app.core.config import (
 logger = logging.getLogger('BatchService')
 
 
-def batch_translate(provider: str = 'akashml'):
+def batch_translate(provider: str = 'akashml', auto_merge: bool = True):
     """
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
 
     Args:
-        provider: 服务商选择，可选值为 'akashml'、'deepseek'、'hyperbolic' 或 'bonsai'
+        provider: 服务商选择，可选值为 'akashml'、'deepseek'、'hyperbolic'、'aihubmix'、'openrouter' 或 'bonsai'
+        auto_merge: 翻译完成后是否自动合并翻译结果（默认: True）
     """
     provider_config = get_provider(provider)
 
@@ -40,8 +41,13 @@ def batch_translate(provider: str = 'akashml'):
     if provider.lower() == 'bonsai':
         api_timeout = int(os.environ.get('BONSAI_API_TIMEOUT', '300'))
 
+    max_workers = TranslationDefaults.BATCH_MAX_WORKERS
+    if provider.lower() == 'openrouter':
+        max_workers = TranslationDefaults.OPENROUTER_BATCH_MAX_WORKERS
+        logger.info(f'[任务] 检测到 OpenRouter 服务商，自动降低并发线程数至 {max_workers}（默认的 50%），避免触发限流')
+
     config = create_translate_config(
-        max_workers=TranslationDefaults.BATCH_MAX_WORKERS,
+        max_workers=max_workers,
         max_retries=TranslationDefaults.BATCH_MAX_RETRIES,
         retry_delay=TranslationDefaults.BATCH_RETRY_DELAY,
         chunk_size=TranslationDefaults.BATCH_CHUNK_SIZE,
@@ -74,6 +80,9 @@ def batch_translate(provider: str = 'akashml'):
         logger.info(f"没有需要处理的文件（预处理跳过 {preprocess_stats.total_skipped} 个文件）")
         # 即便当前没有需要翻译的原始文件，仍然尝试执行一次合并流程，
         # 以便在目录中仅存在已翻译文件（*translated.txt）时也能完成自动合并。
+        if not auto_merge:
+            logger.info('[任务] 已通过参数禁用自动合并，跳过合并流程')
+            return
         if LogConfig.LOG_SHOW_CONTENT:
             logger.info('[任务] 启动文件合并流程（仅合并，不进行翻译）')
         merge_entrance(
@@ -161,6 +170,9 @@ def batch_translate(provider: str = 'akashml'):
     logger.info('=' * 60)
 
     # 调用合并脚本
+    if not auto_merge:
+        logger.info('[任务] 已通过参数禁用自动合并，跳过合并流程')
+        return
     if LogConfig.LOG_SHOW_CONTENT:
         logger.info('[任务] 启动文件合并流程')
     merge_entrance(

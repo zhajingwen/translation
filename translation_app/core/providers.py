@@ -7,6 +7,8 @@
 - AkashML
 - DeepSeek
 - Hyperbolic
+- AIHubMix
+- OpenRouter
 - Bonsai（本地 Bonsai-demo；默认对接 MLX server :8081，可改环境变量使用 llama-server :8080）
 """
 
@@ -35,7 +37,7 @@ class Providers:
     """服务商配置管理"""
     
     # 支持的服务商列表
-    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'bonsai']
+    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai']
     
     @staticmethod
     def get_akashml_config() -> ProviderConfig:
@@ -53,7 +55,7 @@ class Providers:
         return ProviderConfig(
             name='DeepSeek',
             api_base_url='https://api.deepseek.com',
-            model='deepseek-chat',
+            model='deepseek-v4-flash',
             api_key=os.environ.get('DEEPSEEK_API_KEY')
         )
     
@@ -65,6 +67,53 @@ class Providers:
             api_base_url='https://api.hyperbolic.xyz/v1',
             model='openai/gpt-oss-20b',
             api_key=os.environ.get('HYPERBOLIC_API_KEY')
+        )
+
+    @staticmethod
+    def get_aihubmix_config() -> ProviderConfig:
+        """
+        获取 AIHubMix 配置
+
+        AIHubMix（https://aihubmix.com）聚合了 OpenAI、Claude、Gemini、DeepSeek、Qwen 等
+        500+ 模型，提供统一的 OpenAI 兼容接口。
+
+        环境变量：
+        - AIHUBMIX_API_KEY：必需，AIHubMix 的 API Key
+        - AIHUBMIX_API_BASE_URL：可选，默认 ``https://aihubmix.com/v1``；
+          若默认线路不可用，可改用备用线路 ``https://api.aihubmix.com/v1``
+        - AIHUBMIX_MODEL：可选，默认 ``ox-alpha``；也可填写 AIHubMix 支持的任意其他模型 id
+          （如 ``auto`` 交给路由器自动选模型）以固定使用某个模型
+        """
+        base = os.environ.get('AIHUBMIX_API_BASE_URL', 'https://aihubmix.com/v1').rstrip('/')
+        model = os.environ.get('AIHUBMIX_MODEL', 'ox-alpha')
+        return ProviderConfig(
+            name='AIHubMix',
+            api_base_url=base,
+            model=model,
+            api_key=os.environ.get('AIHUBMIX_API_KEY')
+        )
+
+    @staticmethod
+    def get_openrouter_config() -> ProviderConfig:
+        """
+        获取 OpenRouter 配置
+
+        OpenRouter（https://openrouter.ai）聚合了多家厂商的模型，提供统一的
+        OpenAI 兼容接口。
+
+        环境变量：
+        - OPENROUTER_API_KEY：必需，OpenRouter 的 API Key
+        - OPENROUTER_API_BASE_URL：可选，默认 ``https://openrouter.ai/api/v1``
+        - OPENROUTER_MODEL：可选，默认 ``stealth/ox-alpha``；也可填写 OpenRouter
+          支持的任意其他模型 id 以固定使用某个模型
+        """
+        base = os.environ.get('OPENROUTER_API_BASE_URL', 'https://openrouter.ai/api/v1').rstrip('/')
+        model = os.environ.get('OPENROUTER_MODEL', 'stealth/ox-alpha')
+        return ProviderConfig(
+            name='OpenRouter',
+            api_base_url=base,
+            model=model,
+            api_key=os.environ.get('OPENROUTER_API_KEY')
         )
 
     @staticmethod
@@ -116,7 +165,7 @@ class Providers:
         根据服务商名称获取配置
         
         Args:
-            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'bonsai')
+            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai')
         
         Returns:
             ProviderConfig: 服务商配置对象
@@ -138,6 +187,10 @@ class Providers:
             return cls.get_deepseek_config()
         elif provider_lower == 'hyperbolic':
             return cls.get_hyperbolic_config()
+        elif provider_lower == 'aihubmix':
+            return cls.get_aihubmix_config()
+        elif provider_lower == 'openrouter':
+            return cls.get_openrouter_config()
         elif provider_lower == 'bonsai':
             return cls.get_bonsai_config()
         else:
