@@ -9,6 +9,9 @@
 - Hyperbolic
 - AIHubMix
 - OpenRouter
+- NVIDIA（build.nvidia.com / NIM，OpenAI 兼容接口）
+- Gemini（Google AI Studio 官方 API，OpenAI 兼容接口）
+- Bailian（阿里云百炼大模型，OpenAI 兼容接口）
 - Bonsai（本地 Bonsai-demo；默认对接 MLX server :8081，可改环境变量使用 llama-server :8080）
 """
 
@@ -37,7 +40,7 @@ class Providers:
     """服务商配置管理"""
     
     # 支持的服务商列表
-    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai']
+    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai']
     
     @staticmethod
     def get_akashml_config() -> ProviderConfig:
@@ -117,6 +120,85 @@ class Providers:
         )
 
     @staticmethod
+    def get_nvidia_config() -> ProviderConfig:
+        """
+        获取 NVIDIA（build.nvidia.com / NIM）配置
+
+        NVIDIA API Catalog（https://build.nvidia.com）提供 Llama、DeepSeek、Qwen、
+        Mistral 等模型的 OpenAI 兼容接口。
+
+        环境变量：
+        - NVIDIA_API_KEY：必需，NVIDIA 的 API Key（在 build.nvidia.com 生成，形如 ``nvapi-...``）
+        - NVIDIA_API_BASE_URL：可选，默认 ``https://integrate.api.nvidia.com/v1``
+        - NVIDIA_MODEL：可选，默认 ``deepseek-ai/deepseek-v4-flash-0731``；也可填写 build.nvidia.com
+          支持的任意其他模型 id（如 ``meta/llama-3.3-70b-instruct``）以固定使用某个模型
+        """
+        base = os.environ.get('NVIDIA_API_BASE_URL', 'https://integrate.api.nvidia.com/v1').rstrip('/')
+        model = os.environ.get('NVIDIA_MODEL', 'deepseek-ai/deepseek-v4-flash-0731')
+        return ProviderConfig(
+            name='NVIDIA',
+            api_base_url=base,
+            model=model,
+            api_key=os.environ.get('NVIDIA_API_KEY')
+        )
+
+    @staticmethod
+    def get_gemini_config() -> ProviderConfig:
+        """
+        获取 Gemini（Google AI Studio 官方 API）配置
+
+        Google 官方为 Gemini API 提供了 OpenAI 兼容接口
+        （https://ai.google.dev/gemini-api/docs/openai），可直接复用 openai SDK。
+
+        环境变量：
+        - GEMINI_API_KEY：必需，Google AI Studio 生成的 API Key
+          （https://aistudio.google.com/apikey）；也兼容 GOOGLE_API_KEY
+        - GEMINI_API_BASE_URL：可选，默认 ``https://generativelanguage.googleapis.com/v1beta/openai``
+        - GEMINI_MODEL：可选，默认 ``gemini-3.7-flash``（Google 官方当前标记为 "New Stable" 的
+          通用 Flash 档模型）；也可填写 Gemini 支持的任意其他模型 id（如上一代的 ``gemini-2.5-flash``、
+          追求质量的 ``gemini-3.1-pro-preview``）以固定使用某个模型
+        """
+        base = os.environ.get(
+            'GEMINI_API_BASE_URL',
+            'https://generativelanguage.googleapis.com/v1beta/openai'
+        ).rstrip('/')
+        model = os.environ.get('GEMINI_MODEL', 'gemini-3.7-flash')
+        api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        return ProviderConfig(
+            name='Gemini',
+            api_base_url=base,
+            model=model,
+            api_key=api_key
+        )
+
+    @staticmethod
+    def get_bailian_config() -> ProviderConfig:
+        """
+        获取 Bailian（阿里云百炼大模型）配置
+
+        阿里云百炼（https://bailian.console.aliyun.com）提供 Qwen 系列等模型的
+        OpenAI 兼容接口。
+
+        环境变量：
+        - BAILIAN_API_KEY：必需，阿里云百炼的 API Key
+        - BAILIAN_API_BASE_URL：可选，默认
+          ``https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1``
+        - BAILIAN_MODEL：可选，默认 ``qwen-math-turbo``；也可填写百炼支持的任意其他模型 id
+          以固定使用某个模型
+        """
+        base = os.environ.get(
+            'BAILIAN_API_BASE_URL',
+            'https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
+        ).rstrip('/')
+        model = os.environ.get('BAILIAN_MODEL', 'qwen-math-turbo')
+        return ProviderConfig(
+            name='Bailian',
+            api_base_url=base,
+            model=model,
+            api_key=os.environ.get('BAILIAN_API_KEY')
+        )
+
+    @staticmethod
     def get_bonsai_config() -> ProviderConfig:
         """
         本地 Bonsai（github.com/PrismML-Eng/Bonsai-demo）OpenAI 兼容端点。
@@ -165,7 +247,7 @@ class Providers:
         根据服务商名称获取配置
         
         Args:
-            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai')
+            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai')
         
         Returns:
             ProviderConfig: 服务商配置对象
@@ -191,6 +273,12 @@ class Providers:
             return cls.get_aihubmix_config()
         elif provider_lower == 'openrouter':
             return cls.get_openrouter_config()
+        elif provider_lower == 'nvidia':
+            return cls.get_nvidia_config()
+        elif provider_lower == 'gemini':
+            return cls.get_gemini_config()
+        elif provider_lower == 'bailian':
+            return cls.get_bailian_config()
         elif provider_lower == 'bonsai':
             return cls.get_bonsai_config()
         else:

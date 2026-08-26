@@ -24,7 +24,7 @@ def main():
     job_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai'],
         default='akashml',
         help='选择服务商 (默认: akashml)；bonsai 默认连 Bonsai-demo MLX :8081，可用环境变量改 llama :8080'
     )
@@ -33,7 +33,7 @@ def main():
     batch_parser.add_argument(
         '--provider', '-p',
         type=str,
-        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'],
+        choices=['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai'],
         default='akashml',
         help='选择服务商 (默认: akashml)'
     )

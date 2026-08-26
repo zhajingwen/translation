@@ -29,7 +29,7 @@
 - ✅ **多线程并行翻译**：大幅提升翻译速度，可自定义线程数
 - ✅ **智能文本切割**：根据句子边界智能切割文本，保持语义完整性
 - ✅ **自动重试机制**：网络不稳定时自动重试，提高成功率
-- ✅ **多服务商支持**：支持 AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter 和本地 Bonsai 等 LLM 服务商（通过命令行参数选择）
+- ✅ **多服务商支持**：支持 AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA（build.nvidia.com）、Gemini（Google 官方 API）、Bailian（阿里云百炼）和本地 Bonsai 等 LLM 服务商（通过命令行参数选择）
 - ✅ **批量处理**：自动扫描目录并批量翻译文件
 - ✅ **文件合并**：自动合并小型翻译文件，便于管理
 - ✅ **进度跟踪**：实时显示翻译进度和统计信息
@@ -62,7 +62,7 @@ pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 
 #### 第二步：配置 API Key
 
-选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic / AIHubMix / OpenRouter 时必需；本地 `bonsai` 不需要）：
+选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic / AIHubMix / OpenRouter / NVIDIA / Gemini / Bailian 时必需；本地 `bonsai` 不需要）：
 
 ```bash
 # 选项 1：AkashML（推荐，性价比高）
@@ -84,7 +84,24 @@ export OPENROUTER_API_KEY="your_openrouter_api_key"
 # 可选：OPENROUTER_API_BASE_URL（默认 https://openrouter.ai/api/v1）
 # 可选：OPENROUTER_MODEL（默认 stealth/ox-alpha，可填 OpenRouter 支持的任意模型 id）
 
-# 选项 6：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
+# 选项 6：NVIDIA（build.nvidia.com / NIM，聚合 Llama/DeepSeek/Qwen/Mistral 等模型，OpenAI 兼容接口）
+export NVIDIA_API_KEY="your_nvidia_api_key"
+# 可选：NVIDIA_API_BASE_URL（默认 https://integrate.api.nvidia.com/v1）
+# 可选：NVIDIA_MODEL（默认 deepseek-ai/deepseek-v4-flash-0731，可填 build.nvidia.com 支持的任意模型 id，如 meta/llama-3.3-70b-instruct）
+
+# 选项 7：Gemini（Google AI Studio 官方 API，OpenAI 兼容接口）
+export GEMINI_API_KEY="your_gemini_api_key"
+# 密钥在 https://aistudio.google.com/apikey 生成；也兼容环境变量 GOOGLE_API_KEY
+# 可选：GEMINI_API_BASE_URL（默认 https://generativelanguage.googleapis.com/v1beta/openai）
+# 可选：GEMINI_MODEL（默认 gemini-3.7-flash，即 Google 官方当前标记为 "New Stable" 的通用 Flash 档模型；
+# 也可填 Gemini 支持的任意模型 id，如上一代的 gemini-2.5-flash、追求质量的 gemini-3.1-pro-preview）
+
+# 选项 8：Bailian（阿里云百炼大模型，OpenAI 兼容接口）
+export BAILIAN_API_KEY="your_bailian_api_key"
+# 可选：BAILIAN_API_BASE_URL（默认 https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1）
+# 可选：BAILIAN_MODEL（默认 qwen-math-turbo，可填百炼支持的任意模型 id）
+
+# 选项 9：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
 # 默认按 MLX：在 Bonsai-demo 目录执行 ./scripts/start_mlx_server.sh（端口 8081，API 根路径 /v1）
 # 若用 llama-server：export BONSAI_API_BASE_URL=http://127.0.0.1:8080/v1，并 export BONSAI_API_MODEL=<curl http://127.0.0.1:8080/v1/models 里的 id>
 # 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8081/v1）、BONSAI_API_KEY、BONSAI_API_TIMEOUT
@@ -195,6 +212,9 @@ translate job myfile.txt --provider deepseek
 translate job book.epub -p hyperbolic
 translate job myfile.txt -p aihubmix
 translate job myfile.txt -p openrouter
+translate job myfile.txt -p nvidia
+translate job myfile.txt -p gemini
+translate job myfile.txt -p bailian
 translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 MLX server（默认 8081）
 
 # 查看帮助信息
@@ -203,7 +223,7 @@ translate job --help
 
 **参数说明**：
 - `文件路径`：要翻译的文件（支持 .txt、.pdf、.epub），必需参数
-- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、aihubmix、openrouter、bonsai），可选，默认为 akashml
+- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bonsai），可选，默认为 akashml
 - 文件路径支持相对路径和绝对路径
 - 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
@@ -216,7 +236,7 @@ from translation_app.core.providers import get_provider
 from translation_app.infra.openai_client import build_openai_client
 
 # 方式 1: 使用便捷函数创建配置
-provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'bonsai'
+provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai'
 
 config = create_translate_config(
     max_workers=5,
@@ -257,6 +277,9 @@ translate batch --provider deepseek
 translate batch --provider hyperbolic
 translate batch --provider aihubmix
 translate batch --provider openrouter
+translate batch --provider nvidia
+translate batch --provider gemini
+translate batch --provider bailian
 translate batch --provider bonsai
 ```
 
@@ -379,6 +402,30 @@ LLM_MODEL = os.environ.get('OPENROUTER_MODEL', 'stealth/ox-alpha')
 LLM_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 ```
 
+#### NVIDIA（build.nvidia.com / NIM）
+
+```python
+LLM_API_BASE_URL = os.environ.get('NVIDIA_API_BASE_URL', 'https://integrate.api.nvidia.com/v1')
+LLM_MODEL = os.environ.get('NVIDIA_MODEL', 'deepseek-ai/deepseek-v4-flash-0731')
+LLM_API_KEY = os.environ.get('NVIDIA_API_KEY')
+```
+
+#### Gemini（Google AI Studio 官方 API）
+
+```python
+LLM_API_BASE_URL = os.environ.get('GEMINI_API_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
+LLM_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.7-flash')
+LLM_API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+```
+
+#### Bailian（阿里云百炼大模型）
+
+```python
+LLM_API_BASE_URL = os.environ.get('BAILIAN_API_BASE_URL', 'https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1')
+LLM_MODEL = os.environ.get('BAILIAN_MODEL', 'qwen-math-turbo')
+LLM_API_KEY = os.environ.get('BAILIAN_API_KEY')
+```
+
 ### 环境变量
 
 | 变量名 | 说明 | 必需 |
@@ -392,6 +439,15 @@ LLM_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 | `OPENROUTER_API_KEY` | OpenRouter API 密钥 | 使用 OpenRouter 时必需 |
 | `OPENROUTER_API_BASE_URL` | OpenRouter API 基础 URL | 可选，默认 `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | OpenRouter 模型名称（可填 OpenRouter 支持的任意模型 id） | 可选，默认 `stealth/ox-alpha` |
+| `NVIDIA_API_KEY` | NVIDIA（build.nvidia.com）API 密钥 | 使用 NVIDIA 时必需 |
+| `NVIDIA_API_BASE_URL` | NVIDIA API 基础 URL | 可选，默认 `https://integrate.api.nvidia.com/v1` |
+| `NVIDIA_MODEL` | NVIDIA 模型名称（可填 build.nvidia.com 支持的任意模型 id） | 可选，默认 `deepseek-ai/deepseek-v4-flash-0731` |
+| `GEMINI_API_KEY` | Gemini（Google AI Studio）API 密钥（兼容 `GOOGLE_API_KEY`） | 使用 Gemini 时必需 |
+| `GEMINI_API_BASE_URL` | Gemini API 基础 URL | 可选，默认 `https://generativelanguage.googleapis.com/v1beta/openai` |
+| `GEMINI_MODEL` | Gemini 模型名称（可填 Gemini 支持的任意模型 id） | 可选，默认 `gemini-3.7-flash` |
+| `BAILIAN_API_KEY` | Bailian（阿里云百炼）API 密钥 | 使用 Bailian 时必需 |
+| `BAILIAN_API_BASE_URL` | Bailian API 基础 URL | 可选，默认 `https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` |
+| `BAILIAN_MODEL` | Bailian 模型名称（可填百炼支持的任意模型 id） | 可选，默认 `qwen-math-turbo` |
 | `TRANSLATION_WORK_DIR` | 工作目录路径 | 可选，默认 `files` |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
 | `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览（true/false） | 可选，默认 true |
@@ -482,7 +538,7 @@ translation/
 
 #### 配置层 (core/)
 - **config.py**: 统一管理所有配置项，支持环境变量覆盖
-- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、Bonsai 本地）
+- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA、Gemini、Bailian、Bonsai 本地）
 - **translate_config.py**: 翻译配置类（组合模式）
 - **file_analyzer.py**: 文件分析（复用 extractors 进行内容提取）
 - **file_ops.py**: 安全的文件操作（删除、重命名）
@@ -649,7 +705,7 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、aihubmix、openrouter、bonsai
+translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bonsai
 translate batch --provider deepseek
 ```
 
