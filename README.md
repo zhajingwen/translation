@@ -12,7 +12,7 @@
   - [单文件翻译](#1-单文件翻译)
   - [批量翻译](#2-批量翻译)
   - [文件合并](#3-文件合并)
-  - [本地 Ollama 测试](#4-本地-ollama-测试)
+  - [本地部署 Ollama（macOS）](#4-本地部署-ollamamacos)
 - [配置说明](#配置说明)
   - [TranslateConfig 参数](#translateconfig-参数)
   - [服务商配置](#服务商配置)
@@ -29,7 +29,7 @@
 - ✅ **多线程并行翻译**：大幅提升翻译速度，可自定义线程数
 - ✅ **智能文本切割**：根据句子边界智能切割文本，保持语义完整性
 - ✅ **自动重试机制**：网络不稳定时自动重试，提高成功率
-- ✅ **多服务商支持**：支持 AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA（build.nvidia.com）、Gemini（Google 官方 API）、Bailian（阿里云百炼）和本地 Bonsai 等 LLM 服务商（通过命令行参数选择）
+- ✅ **多服务商支持**：支持 AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA（build.nvidia.com）、Gemini（Google 官方 API）、Bailian（阿里云百炼）、BAI（api.b.ai）和本地 Bonsai / Ollama 等 LLM 服务商（通过命令行参数选择）
 - ✅ **批量处理**：自动扫描目录并批量翻译文件
 - ✅ **文件合并**：自动合并小型翻译文件，便于管理
 - ✅ **进度跟踪**：实时显示翻译进度和统计信息
@@ -62,7 +62,7 @@ pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
 
 #### 第二步：配置 API Key
 
-选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic / AIHubMix / OpenRouter / NVIDIA / Gemini / Bailian 时必需；本地 `bonsai` 不需要）：
+选择一个服务商并配置其 API Key（使用 AkashML / DeepSeek / Hyperbolic / AIHubMix / OpenRouter / NVIDIA / Gemini / Bailian / BAI 时必需；本地 `bonsai` / `ollama` 不需要）：
 
 ```bash
 # 选项 1：AkashML（推荐，性价比高）
@@ -82,7 +82,7 @@ export AIHUBMIX_API_KEY="your_aihubmix_api_key"
 # 选项 5：OpenRouter（聚合多家厂商模型，OpenAI 兼容接口）
 export OPENROUTER_API_KEY="your_openrouter_api_key"
 # 可选：OPENROUTER_API_BASE_URL（默认 https://openrouter.ai/api/v1）
-# 可选：OPENROUTER_MODEL（默认 stealth/ox-alpha，可填 OpenRouter 支持的任意模型 id）
+# 可选：OPENROUTER_MODEL（默认 dots-studio/dots-3-note-preview:free，可填 OpenRouter 支持的任意模型 id）
 
 # 选项 6：NVIDIA（build.nvidia.com / NIM，聚合 Llama/DeepSeek/Qwen/Mistral 等模型，OpenAI 兼容接口）
 export NVIDIA_API_KEY="your_nvidia_api_key"
@@ -101,13 +101,24 @@ export BAILIAN_API_KEY="your_bailian_api_key"
 # 可选：BAILIAN_API_BASE_URL（默认 https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1）
 # 可选：BAILIAN_MODEL（默认 qwen-math-turbo，可填百炼支持的任意模型 id）
 
-# 选项 9：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
+# 选项 9：BAI（api.b.ai，OpenAI 兼容接口）
+export BAI_API_KEY="your_bai_api_key"
+# 可选：BAI_API_BASE_URL（默认 https://api.b.ai/v1）
+# 可选：BAI_MODEL（默认 deepseek-v4-flash，可填 BAI 支持的任意模型 id）
+
+# 选项 10：本地 Bonsai（[Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo)，OpenAI 兼容 API）
 # 默认按 MLX：在 Bonsai-demo 目录执行 ./scripts/start_mlx_server.sh（端口 8081，API 根路径 /v1）
 # 若用 llama-server：export BONSAI_API_BASE_URL=http://127.0.0.1:8080/v1，并 export BONSAI_API_MODEL=<curl http://127.0.0.1:8080/v1/models 里的 id>
 # 可选：BONSAI_API_BASE_URL（默认 http://127.0.0.1:8081/v1）、BONSAI_API_KEY、BONSAI_API_TIMEOUT
 # MLX 的 model：与 curl http://127.0.0.1:8081/v1/models 的 id 一致；推荐 export BONSAI_DEMO_DIR=/你的路径/Bonsai-demo
 # （会自动用 $BONSAI_DEMO_DIR/models/Bonsai-8B-mlx），或直接把上述 JSON 里的 id 设到 BONSAI_API_MODEL
 # 勿随便填 gpt-3.5-turbo / bonsai，否则会去 HuggingFace 拉模型并报 401
+
+# 选项 11：本地 Ollama（https://ollama.com，原生 OpenAI 兼容 API）
+# 先启动服务并拉取模型：ollama serve（通常已随安装自启） && ollama pull <model>
+# 可选：OLLAMA_API_BASE_URL（默认 http://127.0.0.1:11434/v1）
+# 可选：OLLAMA_MODEL（默认 sun_leaf/HY-MT:1.8b，可填 `ollama list` 里的任意模型名，含 tag，如 qwen2:7b）
+# 可选：OLLAMA_API_KEY（本地无鉴权，不设则用占位值）、OLLAMA_API_TIMEOUT（默认 300 秒）
 ```
 
 **验证 MLX 是否正常（整段粘贴时请不要带「以 `#` 开头的说明行」）**：在默认 zsh 下若未开启交互式注释，行首的 `#` 会被当成命令名，从而出现 `zsh: command not found: #`。可先执行 `setopt interactivecomments`，或只复制下面两个代码块中的命令。
@@ -123,6 +134,13 @@ curl http://127.0.0.1:8081/v1/chat/completions \
 ```
 
 `v1/models` 里的 `id` 多为绝对路径，与请求里的 `model` 写成 `models/Bonsai-8B-mlx`（相对 Bonsai-demo 根目录）通常等效；你本地已成功说明相对路径可用。翻译项目未设 `BONSAI_DEMO_DIR` 时默认即用该相对路径。
+
+**验证 Ollama 是否正常**：
+
+```bash
+ollama list                                    # 确认模型已拉取（NAME 列即 OLLAMA_MODEL 的值）
+curl -s http://127.0.0.1:11434/v1/models | python3 -m json.tool
+```
 
 #### 第三步：开始翻译
 
@@ -215,7 +233,9 @@ translate job myfile.txt -p openrouter
 translate job myfile.txt -p nvidia
 translate job myfile.txt -p gemini
 translate job myfile.txt -p bailian
+translate job myfile.txt -p bai
 translate job myfile.txt --provider bonsai   # 需本地已启动 Bonsai-demo 的 MLX server（默认 8081）
+translate job myfile.txt --provider ollama   # 需本地已启动 Ollama 服务（默认 11434）
 
 # 查看帮助信息
 translate job --help
@@ -223,7 +243,7 @@ translate job --help
 
 **参数说明**：
 - `文件路径`：要翻译的文件（支持 .txt、.pdf、.epub），必需参数
-- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bonsai），可选，默认为 akashml
+- `--provider` 或 `-p`：选择服务商（akashml、deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bai、bonsai、ollama），可选，默认为 akashml
 - 文件路径支持相对路径和绝对路径
 - 翻译结果自动保存为 `原文件名 translated.txt` 格式
 
@@ -236,7 +256,7 @@ from translation_app.core.providers import get_provider
 from translation_app.infra.openai_client import build_openai_client
 
 # 方式 1: 使用便捷函数创建配置
-provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai'
+provider_config = get_provider('akashml')  # 或 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bai', 'bonsai', 'ollama'
 
 config = create_translate_config(
     max_workers=5,
@@ -280,7 +300,9 @@ translate batch --provider openrouter
 translate batch --provider nvidia
 translate batch --provider gemini
 translate batch --provider bailian
+translate batch --provider bai
 translate batch --provider bonsai
+translate batch --provider ollama
 ```
 
 **批量翻译的自动化流程**：
@@ -329,9 +351,60 @@ merge_entrance(
 )
 ```
 
-### 4. 本地 Ollama 测试
+### 4. 本地部署 Ollama（macOS）
 
-使用本地 Ollama 模型进行翻译（零成本）：
+使用本地 Ollama 模型进行翻译（零成本、无需 API Key），以下流程以 Homebrew 管理的 Ollama 服务为例，在 MacBook Air（Apple Silicon，统一内存架构）上验证过：
+
+**① 安装与启动服务**
+
+```bash
+# 安装 Ollama（如已安装可跳过）
+brew install ollama
+
+# 以 launchd 后台服务方式启动（推荐，随系统自启、崩溃自动重启）
+brew services start ollama
+
+# 拉取模型（以项目默认模型为例，也可换成 qwen2:7b 等任意 ollama 支持的模型）
+ollama pull sun_leaf/HY-MT:1.8b
+
+# 确认模型已拉取
+ollama list
+```
+
+**② （可选）调整并发数，提升批量翻译吞吐**
+
+Ollama 默认并行槽位数较低（新版本默认 4，部分版本为 1），同一时间能处理的请求数有限；多发的请求会在 Ollama 内部排队，而不是真正并行执行。如果 MacBook Air 内存余量充足（统一内存需同时容纳模型权重 + N 份并行上下文的 KV cache），可以调高并行度：
+
+```bash
+# 设置全局环境变量（对当前用户会话下所有由 launchd 拉起的进程生效，含 brew services）
+launchctl setenv OLLAMA_NUM_PARALLEL 4
+
+# 重启服务使其生效（必须重启，setenv 不会让已运行的进程自动读取新值）
+brew services restart ollama
+```
+
+**验证是否真正生效**（不能只看 `launchctl getenv`，因为它只反映环境变量本身，不代表推理引擎已应用）：
+
+```bash
+# 1. 确认变量已下发给 ollama serve 进程
+ps eww $(pgrep -f "ollama serve") | tr ' ' '\n' | grep OLLAMA_NUM_PARALLEL
+
+# 2. 发一次翻译/对话请求触发模型加载后，确认底层 llama-server 子进程的 -np 参数
+#    -np 后面的数字才是真正生效的并行槽位数
+ps aux | grep "llama-server" | grep -v grep
+```
+
+**重要**：Python 应用这边批量翻译的并发线程数（`translation_app/core/config.py` 中的 `OLLAMA_BATCH_MAX_WORKERS`）需要与 `OLLAMA_NUM_PARALLEL` 保持一致——设多了请求会在 Ollama 侧排队增加超时风险，设少了则浪费掉并行能力，无法提速。MacBook Air 是统一内存架构，没有独立显存，并行度调高后内存占用会明显上升，建议先用少量文件小规模测试内存占用和实际耗时，确认稳定后再跑大批量任务，避免内存不足拖慢整机。
+
+**③ 服务管理常用命令**
+
+```bash
+brew services list             # 查看 ollama 服务运行状态
+brew services stop ollama      # 停止服务
+brew services restart ollama   # 重启服务（修改 OLLAMA_NUM_PARALLEL 等环境变量后需要）
+```
+
+**④ 用项目脚本测试翻译**
 
 ```bash
 # 确保本地运行了 Ollama 服务
@@ -340,7 +413,7 @@ merge_entrance(
 python examples/ollama_local_qwen2.py
 ```
 
-**注意**：需要在脚本中修改 `MODEL_NAME` 和 `source_origin_book_name` 变量。
+**注意**：需要在脚本中修改 `MODEL_NAME` 和 `source_origin_book_name` 变量。也可以直接用 CLI：`translate job your_file.pdf --provider ollama` 或 `translate batch --provider ollama`（会自动应用上文的 `OLLAMA_BATCH_MAX_WORKERS` 并发设置）。
 
 ## 配置说明
 
@@ -398,7 +471,7 @@ LLM_API_KEY = os.environ.get('AIHUBMIX_API_KEY')
 
 ```python
 LLM_API_BASE_URL = os.environ.get('OPENROUTER_API_BASE_URL', 'https://openrouter.ai/api/v1')
-LLM_MODEL = os.environ.get('OPENROUTER_MODEL', 'stealth/ox-alpha')
+LLM_MODEL = os.environ.get('OPENROUTER_MODEL', 'dots-studio/dots-3-note-preview:free')
 LLM_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 ```
 
@@ -426,6 +499,24 @@ LLM_MODEL = os.environ.get('BAILIAN_MODEL', 'qwen-math-turbo')
 LLM_API_KEY = os.environ.get('BAILIAN_API_KEY')
 ```
 
+#### BAI（api.b.ai）
+
+```python
+LLM_API_BASE_URL = os.environ.get('BAI_API_BASE_URL', 'https://api.b.ai/v1')
+LLM_MODEL = os.environ.get('BAI_MODEL', 'deepseek-v4-flash')
+LLM_API_KEY = os.environ.get('BAI_API_KEY')
+```
+
+#### Ollama（本地，零成本）
+
+```python
+LLM_API_BASE_URL = os.environ.get('OLLAMA_API_BASE_URL', 'http://127.0.0.1:11434/v1')
+LLM_MODEL = os.environ.get('OLLAMA_MODEL', 'sun_leaf/HY-MT:1.8b')
+LLM_API_KEY = os.environ.get('OLLAMA_API_KEY', 'ollama')  # 本地无鉴权，占位用
+```
+
+本地部署详细步骤见 [4. 本地部署 Ollama（macOS）](#4-本地部署-ollamamacos)。批量翻译（`batch_service.py`）会自动检测 `provider == 'ollama'`，把并发线程数强制设为 `TranslationDefaults.OLLAMA_BATCH_MAX_WORKERS`（`translation_app/core/config.py`，默认 `4`），而不是走服务商通用的 `BATCH_MAX_WORKERS`（默认 8）。这个值需要与 Ollama 服务端的并行槽位数（由 `OLLAMA_NUM_PARALLEL` 环境变量控制，见上文部署章节）保持一致，否则要么请求在 Ollama 侧排队等待，要么浪费掉并行能力。
+
 ### 环境变量
 
 | 变量名 | 说明 | 必需 |
@@ -438,7 +529,7 @@ LLM_API_KEY = os.environ.get('BAILIAN_API_KEY')
 | `AIHUBMIX_MODEL` | AIHubMix 模型名称（可填具体模型 id，或 `auto` 表示自动路由） | 可选，默认 `ox-alpha` |
 | `OPENROUTER_API_KEY` | OpenRouter API 密钥 | 使用 OpenRouter 时必需 |
 | `OPENROUTER_API_BASE_URL` | OpenRouter API 基础 URL | 可选，默认 `https://openrouter.ai/api/v1` |
-| `OPENROUTER_MODEL` | OpenRouter 模型名称（可填 OpenRouter 支持的任意模型 id） | 可选，默认 `stealth/ox-alpha` |
+| `OPENROUTER_MODEL` | OpenRouter 模型名称（可填 OpenRouter 支持的任意模型 id） | 可选，默认 `dots-studio/dots-3-note-preview:free` |
 | `NVIDIA_API_KEY` | NVIDIA（build.nvidia.com）API 密钥 | 使用 NVIDIA 时必需 |
 | `NVIDIA_API_BASE_URL` | NVIDIA API 基础 URL | 可选，默认 `https://integrate.api.nvidia.com/v1` |
 | `NVIDIA_MODEL` | NVIDIA 模型名称（可填 build.nvidia.com 支持的任意模型 id） | 可选，默认 `deepseek-ai/deepseek-v4-flash-0731` |
@@ -448,9 +539,18 @@ LLM_API_KEY = os.environ.get('BAILIAN_API_KEY')
 | `BAILIAN_API_KEY` | Bailian（阿里云百炼）API 密钥 | 使用 Bailian 时必需 |
 | `BAILIAN_API_BASE_URL` | Bailian API 基础 URL | 可选，默认 `https://ws-nmegx6couf0ng9ix.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` |
 | `BAILIAN_MODEL` | Bailian 模型名称（可填百炼支持的任意模型 id） | 可选，默认 `qwen-math-turbo` |
+| `BAI_API_KEY` | BAI（api.b.ai）API 密钥 | 使用 BAI 时必需 |
+| `BAI_API_BASE_URL` | BAI API 基础 URL | 可选，默认 `https://api.b.ai/v1` |
+| `BAI_MODEL` | BAI 模型名称（可填 BAI 支持的任意模型 id） | 可选，默认 `deepseek-v4-flash` |
+| `OLLAMA_API_BASE_URL` | 本地 Ollama API 基础 URL | 可选，默认 `http://127.0.0.1:11434/v1` |
+| `OLLAMA_MODEL` | Ollama 模型名称（可填 `ollama list` 中的任意模型名，含 tag） | 可选，默认 `sun_leaf/HY-MT:1.8b` |
+| `OLLAMA_API_KEY` | Ollama API 密钥（本地无鉴权，占位用） | 可选，默认 `ollama` |
+| `OLLAMA_API_TIMEOUT` | 使用 Ollama 时的 API 超时时间（秒） | 可选，默认 `300` |
 | `TRANSLATION_WORK_DIR` | 工作目录路径 | 可选，默认 `files` |
 | `LOG_LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） | 可选，默认 INFO |
 | `LOG_SHOW_CONTENT` | 是否在日志中显示翻译内容预览（true/false） | 可选，默认 true |
+
+> 注：`OLLAMA_NUM_PARALLEL` 不是本项目读取的环境变量，而是 **Ollama 服务自身**的并行度配置（需用 `launchctl setenv OLLAMA_NUM_PARALLEL <n>` 设置并 `brew services restart ollama` 生效），详见 [4. 本地部署 Ollama（macOS）](#4-本地部署-ollamamacos)；本项目这边对应要调整的是上一节提到的 `OLLAMA_BATCH_MAX_WORKERS`（代码里的常量，非环境变量）。
 
 **自定义工作目录示例**：
 
@@ -538,7 +638,7 @@ translation/
 
 #### 配置层 (core/)
 - **config.py**: 统一管理所有配置项，支持环境变量覆盖
-- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA、Gemini、Bailian、Bonsai 本地）
+- **providers.py**: 管理 LLM 服务商配置（AkashML、DeepSeek、Hyperbolic、AIHubMix、OpenRouter、NVIDIA、Gemini、Bailian、Bonsai 本地、Ollama 本地）
 - **translate_config.py**: 翻译配置类（组合模式）
 - **file_analyzer.py**: 文件分析（复用 extractors 进行内容提取）
 - **file_ops.py**: 安全的文件操作（删除、重命名）
@@ -705,7 +805,7 @@ A: 批量翻译会自动跳过以下文件：
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
 ```bash
-translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bonsai
+translate job myfile.txt --provider akashml    # 或 deepseek、hyperbolic、aihubmix、openrouter、nvidia、gemini、bailian、bai、bonsai、ollama
 translate batch --provider deepseek
 ```
 

@@ -32,7 +32,7 @@ def batch_translate(provider: str = 'akashml', auto_merge: bool = True):
     批量翻译文件，支持 txt、pdf、epub 三种文件类型
 
     Args:
-        provider: 服务商选择，可选值为 'akashml'、'deepseek'、'hyperbolic'、'aihubmix'、'openrouter'、'nvidia'、'gemini'、'bailian' 或 'bonsai'
+        provider: 服务商选择，可选值为 'akashml'、'deepseek'、'hyperbolic'、'aihubmix'、'openrouter'、'nvidia'、'gemini'、'bailian'、'bai'、'bonsai' 或 'ollama'
         auto_merge: 翻译完成后是否自动合并翻译结果（默认: True）
     """
     provider_config = get_provider(provider)
@@ -40,11 +40,19 @@ def batch_translate(provider: str = 'akashml', auto_merge: bool = True):
     api_timeout = TranslationDefaults.BATCH_API_TIMEOUT
     if provider.lower() == 'bonsai':
         api_timeout = int(os.environ.get('BONSAI_API_TIMEOUT', '300'))
+    elif provider.lower() == 'ollama':
+        api_timeout = int(os.environ.get('OLLAMA_API_TIMEOUT', '300'))
 
     max_workers = TranslationDefaults.BATCH_MAX_WORKERS
     if provider.lower() == 'openrouter':
         max_workers = TranslationDefaults.OPENROUTER_BATCH_MAX_WORKERS
         logger.info(f'[任务] 检测到 OpenRouter 服务商，自动降低并发线程数至 {max_workers}，避免触发限流')
+    elif provider.lower() == 'bai':
+        max_workers = TranslationDefaults.BAI_BATCH_MAX_WORKERS
+        logger.info(f'[任务] 检测到 BAI 服务商，自动降低并发线程数至 {max_workers}，避免触发限流')
+    elif provider.lower() == 'ollama':
+        max_workers = TranslationDefaults.OLLAMA_BATCH_MAX_WORKERS
+        logger.info(f'[任务] 检测到本地 Ollama 服务商，并发线程数设置为 {max_workers}')
 
     config = create_translate_config(
         max_workers=max_workers,

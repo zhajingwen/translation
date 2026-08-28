@@ -258,11 +258,12 @@ class Translator:
 
     def _update_progress(self, completed_count: int):
         """更新进度显示"""
-        progress_percent = int((completed_count / self.total_chunks) * 100)
-        if progress_percent - self._last_progress_percent >= 5 or progress_percent == 100:
-            elapsed = time.time() - self.translate_start_time
-            logger.info(f'[翻译] 进度: {progress_percent}% | 已用时 {elapsed:.1f}s')
-            self._last_progress_percent = progress_percent
+        progress_percent = (completed_count / self.total_chunks) * 100
+        elapsed = time.time() - self.translate_start_time
+        logger.info(
+            f'[翻译] 进度: {progress_percent:.3f}% ({completed_count}/{self.total_chunks}) | 已用时 {elapsed:.1f}s'
+        )
+        self._last_progress_percent = progress_percent
 
     def save_result(self, result: str):
         """保存翻译结果到文件"""

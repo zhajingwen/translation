@@ -85,7 +85,13 @@ class TranslationDefaults:
 
     # OpenRouter 限流较严（尤其是 stealth/免费模型），批量翻译时自动降低并发
     OPENROUTER_BATCH_MAX_WORKERS = 2
-    
+
+    # BAI 限流较严，批量翻译时自动降低并发为单线程
+    BAI_BATCH_MAX_WORKERS = 1
+
+    # Ollama 本地服务并发线程数，需与 launchctl setenv OLLAMA_NUM_PARALLEL 保持一致
+    OLLAMA_BATCH_MAX_WORKERS = 4
+
     # 单文件翻译默认配置
     JOB_MAX_WORKERS = 1
     JOB_MAX_RETRIES = 6
@@ -93,6 +99,27 @@ class TranslationDefaults:
     JOB_CHUNK_SIZE = 50000
     JOB_MIN_CHUNK_SIZE = 30000
     JOB_API_TIMEOUT = 60
+
+
+# ================== Gemini Batch API 配置 ==================
+
+class GeminiBatchDefaults:
+    """Gemini 官方异步批处理（Batch API）默认配置
+
+    与实时 chat.completions 批量翻译（TranslationDefaults.BATCH_*）不同，
+    Gemini Batch API 是把所有翻译请求打包异步提交，由服务端排队处理，
+    通常能拿到官方 Batch 档位约 50% 的价格折扣，但结果不是实时返回的。
+    """
+
+    # 文本切割参数，复用普通批量翻译的粒度
+    CHUNK_SIZE = TranslationDefaults.BATCH_CHUNK_SIZE
+    MIN_CHUNK_SIZE = TranslationDefaults.BATCH_MIN_CHUNK_SIZE
+
+    # `run` 命令轮询任务状态的间隔（秒）
+    POLL_INTERVAL = 30
+
+    # 内联（inline）请求数的建议上限，超过时仅记录警告，仍会尝试提交
+    MAX_INLINE_REQUESTS = 3000
 
 
 # ================== 日志配置 ==================

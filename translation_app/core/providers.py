@@ -12,7 +12,9 @@
 - NVIDIA（build.nvidia.com / NIM，OpenAI 兼容接口）
 - Gemini（Google AI Studio 官方 API，OpenAI 兼容接口）
 - Bailian（阿里云百炼大模型，OpenAI 兼容接口）
+- BAI（api.b.ai，OpenAI 兼容接口）
 - Bonsai（本地 Bonsai-demo；默认对接 MLX server :8081，可改环境变量使用 llama-server :8080）
+- Ollama（本地 Ollama 服务；默认对接 :11434，使用其 OpenAI 兼容接口 /v1）
 """
 
 import os
@@ -40,7 +42,7 @@ class Providers:
     """服务商配置管理"""
     
     # 支持的服务商列表
-    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai']
+    SUPPORTED_PROVIDERS = ['akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bai', 'bonsai', 'ollama']
     
     @staticmethod
     def get_akashml_config() -> ProviderConfig:
@@ -107,11 +109,11 @@ class Providers:
         环境变量：
         - OPENROUTER_API_KEY：必需，OpenRouter 的 API Key
         - OPENROUTER_API_BASE_URL：可选，默认 ``https://openrouter.ai/api/v1``
-        - OPENROUTER_MODEL：可选，默认 ``stealth/ox-alpha``；也可填写 OpenRouter
-          支持的任意其他模型 id 以固定使用某个模型
+        - OPENROUTER_MODEL：可选，默认 ``dots-studio/dots-3-note-preview:free``；
+          也可填写 OpenRouter 支持的任意其他模型 id 以固定使用某个模型
         """
         base = os.environ.get('OPENROUTER_API_BASE_URL', 'https://openrouter.ai/api/v1').rstrip('/')
-        model = os.environ.get('OPENROUTER_MODEL', 'stealth/ox-alpha')
+        model = os.environ.get('OPENROUTER_MODEL', 'dots-studio/dots-3-note-preview:free')
         return ProviderConfig(
             name='OpenRouter',
             api_base_url=base,
@@ -154,15 +156,15 @@ class Providers:
         - GEMINI_API_KEY：必需，Google AI Studio 生成的 API Key
           （https://aistudio.google.com/apikey）；也兼容 GOOGLE_API_KEY
         - GEMINI_API_BASE_URL：可选，默认 ``https://generativelanguage.googleapis.com/v1beta/openai``
-        - GEMINI_MODEL：可选，默认 ``gemini-3.7-flash``（Google 官方当前标记为 "New Stable" 的
-          通用 Flash 档模型）；也可填写 Gemini 支持的任意其他模型 id（如上一代的 ``gemini-2.5-flash``、
+        - GEMINI_MODEL：可选，默认 ``gemini-3.5-flash-lite``（轻量低价档模型，适合大批量翻译）；
+          也可填写 Gemini 支持的任意其他模型 id（如通用档 ``gemini-3.7-flash``、
           追求质量的 ``gemini-3.1-pro-preview``）以固定使用某个模型
         """
         base = os.environ.get(
             'GEMINI_API_BASE_URL',
             'https://generativelanguage.googleapis.com/v1beta/openai'
         ).rstrip('/')
-        model = os.environ.get('GEMINI_MODEL', 'gemini-3.7-flash')
+        model = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite')
         api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
         return ProviderConfig(
             name='Gemini',
@@ -196,6 +198,28 @@ class Providers:
             api_base_url=base,
             model=model,
             api_key=os.environ.get('BAILIAN_API_KEY')
+        )
+
+    @staticmethod
+    def get_bai_config() -> ProviderConfig:
+        """
+        获取 BAI（api.b.ai）配置
+
+        BAI（https://api.b.ai）提供 DeepSeek 等模型的 OpenAI 兼容接口。
+
+        环境变量：
+        - BAI_API_KEY：必需，BAI 的 API Key
+        - BAI_API_BASE_URL：可选，默认 ``https://api.b.ai/v1``
+        - BAI_MODEL：可选，默认 ``deepseek-v4-flash``；也可填写 BAI 支持的任意其他模型 id
+          以固定使用某个模型
+        """
+        base = os.environ.get('BAI_API_BASE_URL', 'https://api.b.ai/v1').rstrip('/')
+        model = os.environ.get('BAI_MODEL', 'deepseek-v4-flash')
+        return ProviderConfig(
+            name='BAI',
+            api_base_url=base,
+            model=model,
+            api_key=os.environ.get('BAI_API_KEY')
         )
 
     @staticmethod
@@ -240,14 +264,43 @@ class Providers:
             model=model,
             api_key=api_key,
         )
-    
+
+    @staticmethod
+    def get_ollama_config() -> ProviderConfig:
+        """
+        本地 Ollama（https://ollama.com）OpenAI 兼容端点。
+
+        Ollama 默认监听 11434 端口，并原生提供 OpenAI 兼容的 ``/v1`` 接口，
+        可直接复用 openai SDK，无需额外的转发服务。
+
+        环境变量：
+        - OLLAMA_API_BASE_URL：可选，默认 ``http://127.0.0.1:11434/v1``
+        - OLLAMA_MODEL：可选，默认 ``sun_leaf/HY-MT:1.8b``；也可填写
+          ``ollama list`` 输出中的任意其他模型名（含 tag，如 ``qwen2:7b``）
+        - OLLAMA_API_KEY：可选；本地服务无鉴权，不设时使用占位值
+
+        使用前需确保本地 Ollama 服务已启动（``ollama serve``），且目标模型已
+        通过 ``ollama pull <model>`` 拉取到本地。
+        """
+        base = os.environ.get('OLLAMA_API_BASE_URL', 'http://127.0.0.1:11434/v1').rstrip('/')
+        if not base.endswith('/v1'):
+            base = f'{base}/v1'
+        model = os.environ.get('OLLAMA_MODEL', 'sun_leaf/HY-MT:1.8b')
+        api_key = os.environ.get('OLLAMA_API_KEY', 'ollama')
+        return ProviderConfig(
+            name='Ollama (local)',
+            api_base_url=base,
+            model=model,
+            api_key=api_key,
+        )
+
     @classmethod
     def get_provider_config(cls, provider: str) -> ProviderConfig:
         """
         根据服务商名称获取配置
         
         Args:
-            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bonsai')
+            provider: 服务商名称 ('akashml', 'deepseek', 'hyperbolic', 'aihubmix', 'openrouter', 'nvidia', 'gemini', 'bailian', 'bai', 'bonsai', 'ollama')
         
         Returns:
             ProviderConfig: 服务商配置对象
@@ -279,8 +332,12 @@ class Providers:
             return cls.get_gemini_config()
         elif provider_lower == 'bailian':
             return cls.get_bailian_config()
+        elif provider_lower == 'bai':
+            return cls.get_bai_config()
         elif provider_lower == 'bonsai':
             return cls.get_bonsai_config()
+        elif provider_lower == 'ollama':
+            return cls.get_ollama_config()
         else:
             raise ValueError(f"未实现的服务商: {provider}")
 

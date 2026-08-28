@@ -27,6 +27,8 @@ def run_single_file(source_file: str, provider: str = 'akashml') -> bool:
     api_timeout = TranslationDefaults.JOB_API_TIMEOUT
     if provider.lower() == 'bonsai':
         api_timeout = int(os.environ.get('BONSAI_API_TIMEOUT', '300'))
+    elif provider.lower() == 'ollama':
+        api_timeout = int(os.environ.get('OLLAMA_API_TIMEOUT', '300'))
 
     # 验证文件是否存在
     file_path = Path(source_file)
