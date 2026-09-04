@@ -18,7 +18,7 @@ from openai import APITimeoutError, APIError
 
 from translation_app.domain.extractors import get_extractor
 from translation_app.domain.text_processor import TextProcessor
-from translation_app.core.config import LogConfig, PathConfig
+from translation_app.core.config import LogConfig, PathConfig, TranslatePromptConfig
 from translation_app.core.translate_config import TranslateConfig
 from translation_app.core.path_utils import normalize_file_path, get_translated_path
 
@@ -121,8 +121,8 @@ class Translator:
             response = self.client.chat.completions.create(
                 model=self.config.model,
                 messages=[
-                    {"role": "system", "content": "You are a translation assistant."},
-                    {"role": "user", "content": f"将该文本翻译成简体中文（白话文）: {text_origin}"}
+                    {"role": "system", "content": TranslatePromptConfig.SYSTEM_INSTRUCTION},
+                    {"role": "user", "content": TranslatePromptConfig.TRANSLATE_PROMPT_TEMPLATE.format(text=text_origin)}
                 ],
                 stream=False,
                 timeout=self.config.api_timeout

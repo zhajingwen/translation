@@ -29,6 +29,7 @@ from translation_app.core.config import (
     GeminiBatchDefaults,
     LogConfig,
     PathConfig,
+    TranslatePromptConfig,
 )
 from translation_app.core.file_ops import safe_delete
 from translation_app.core.path_utils import get_translated_path
@@ -42,8 +43,8 @@ from translation_app.services.merge_service import merge_entrance
 
 logger = logging.getLogger('GeminiBatchService')
 
-SYSTEM_INSTRUCTION = "You are a translation assistant."
-TRANSLATE_PROMPT_TEMPLATE = "将该文本翻译成简体中文（白话文）: {text}"
+SYSTEM_INSTRUCTION = TranslatePromptConfig.SYSTEM_INSTRUCTION
+TRANSLATE_PROMPT_TEMPLATE = TranslatePromptConfig.TRANSLATE_PROMPT_TEMPLATE
 
 MANIFEST_DIR_NAME = '.gemini_batch'
 
