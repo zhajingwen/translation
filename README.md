@@ -57,8 +57,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 
 # 或使用传统 pip
-pip install beautifulsoup4 ebooklib openai pypdf2 requests retry
+pip install beautifulsoup4 ebooklib openai pypdf2 pymupdf pytesseract pillow requests retry
 ```
+
+> PDF 扫描件 OCR 识别依赖系统安装的 Tesseract（macOS：`brew install tesseract`；Ubuntu/Debian：`apt install tesseract-ocr`），不装也不影响正常有文本层的 PDF。
 
 #### 第二步：配置 API Key
 
@@ -710,7 +712,7 @@ cli → services → domain
 
 ### 格式支持
 
-- **PDF**：使用 PyPDF2 提取文本，可能无法完美处理扫描版 PDF
+- **PDF**：使用 PyPDF2 提取文本；无文本层的扫描版页面（页面内嵌图片但提取不到文字）会自动降级为 OCR 识别（PyMuPDF 渲染 + Tesseract），**目前仅支持英文扫描件**，需本机安装 `tesseract-ocr`（macOS：`brew install tesseract`）
 - **EPUB**：自动过滤空白页和样式文件，只提取正文内容，支持多种 MIME 类型
 - **TXT**：支持 UTF-8、GBK、GB2312 编码
 
