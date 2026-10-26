@@ -316,7 +316,23 @@ translate batch --provider ollama
 5. 跳过已存在翻译结果的文件（如果已存在 `原文件名 translated.txt`，则删除原文件）
 6. 依次翻译剩余文件
 7. 翻译成功后删除原文件
-8. 自动调用合并脚本合并小型文件（< 10万字）
+8. 自动调用合并脚本合并小型文件（< 10万字），可用 `--no-merge` 关闭
+
+**禁用自动合并**：
+
+```bash
+# 批量翻译完成后不自动合并
+translate batch --provider akashml --no-merge
+
+# Gemini 批处理同样支持
+translate gemini-batch run --no-merge
+translate gemini-batch fetch --no-merge
+
+# 之后需要时再手动合并
+translate merge
+```
+
+> 注：`job`（单文件翻译）本身不会自动合并；任务运行中无法关闭合并，需停止后带 `--no-merge` 重新启动。
 
 ### 3. 文件合并
 
@@ -781,6 +797,9 @@ translate batch --provider akashml
 # 1. 翻译所有文件
 # 2. 删除原文件
 # 3. 合并小型翻译文件
+
+# 如不需要自动合并，加上 --no-merge
+translate batch --provider akashml --no-merge
 ```
 
 ## 常见问题
@@ -803,6 +822,9 @@ A: 批量翻译会自动跳过以下文件：
 - 中文字符占比 >= 30% 的 `.txt` 文件（会被重命名为 `translated.txt` 格式）
 - 字符数 < 1000 的文件（会被删除）
 - 已存在翻译结果的文件（原文件会被删除）
+
+**Q: 如何禁用翻译完成后的自动合并？**  
+A: 启动时加 `--no-merge` 参数，`translate batch`、`translate gemini-batch run`、`translate gemini-batch fetch` 都支持。之后需要合并时再执行 `translate merge`。
 
 **Q: 如何选择不同的 LLM 服务商？**  
 A: 使用 `--provider` 或 `-p` 参数：
